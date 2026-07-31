@@ -247,6 +247,53 @@ GRID_CHEF = [
     '.WWWWW.',
     'WWWWWWW',
 ]
+GRID_HAT_NAVIDAD = [
+    '.........OOO',
+    '........OOOO',
+    '.....RRRRR..',
+    '...RRRRRRRR.',
+    'OOOOOOOOOOOO',
+    'OOOOOOOOOOOO',
+]
+GRID_HAT_HALLOWEEN = [
+    '.....XX.....',
+    '.....XX.....',
+    '....XXXX....',
+    '...XXXXXX...',
+    '..XXXXXXXX..',
+    'PPPPPPPPPPPP',
+    'PPPPPPPPPPPP',
+]
+GRID_HAT_CUMPLE = [
+    '.....O.....',
+    '....AAA....',
+    '....BBB....',
+    '...AAAAA...',
+    '...BBBBB...',
+    '..AAAAAAA..',
+]
+GRID_HEART = [
+    '.RR.RR.',
+    'RRRRRRR',
+    'RRRRRRR',
+    '.RRRRR.',
+    '..RRR..',
+    '...R...',
+]
+GRID_SWEAT = [
+    '..Q..',
+    '..Q..',
+    '.QQQ.',
+    'QQQQQ',
+    'QQQQQ',
+    '.QQQ.',
+]
+GRID_STAR = [
+    '..Y..',
+    'YYYYY',
+    '.YYY.',
+    'YY.YY',
+]
 GRID_NOTE = [
     '....MM',
     '...M.M',
@@ -286,6 +333,11 @@ COL = {
     'L': (90, 130, 210, 255),        # aro de la lupa (azul)
     'D': (70, 70, 80, 255),          # detalle (mango lupa / puntos burbuja)
     'B': (240, 240, 245, 255),       # burbuja (blanco)
+    'R': (214, 52, 74, 255),         # rojo (gorro Navidad / corazón)
+    'X': (26, 26, 32, 255),          # negro (bruja)
+    'P': (108, 60, 150, 255),        # morado (ala de bruja)
+    'A': (240, 120, 170, 255),       # rosa (fiesta)
+    'Q': (110, 170, 235, 255),       # azul (gotita de sudor)
 }
 
 
@@ -375,6 +427,12 @@ def main():
     png_de_grid(GRID_NOTE, COL, block, 'assets/note.png')
     png_de_grid(GRID_LENS, COL, block, 'assets/lens.png')
     png_de_grid(GRID_BUBBLE, COL, block, 'assets/bubble.png')
+    png_de_grid(GRID_HAT_NAVIDAD, COL, block, 'assets/hat_navidad.png')
+    png_de_grid(GRID_HAT_HALLOWEEN, COL, block, 'assets/hat_halloween.png')
+    png_de_grid(GRID_HAT_CUMPLE, COL, block, 'assets/hat_cumple.png')
+    png_de_grid(GRID_HEART, COL, block, 'assets/heart.png')
+    png_de_grid(GRID_SWEAT, COL, block, 'assets/sweat.png')
+    png_de_grid(GRID_STAR, COL, block_z, 'assets/star.png')
 
     if preview:
         orden = ['idle_0', 'walk_0', 'jump_0', 'sleep_0']

@@ -21,8 +21,12 @@ duerme. **100 % local, sin ninguna llamada de red.**
 - **Se duerme** tras unos segundos de inactividad (se estira, se acuesta con gorro
   de dormir + luna 🌙 y zzz).
 - **Interactiva:** clic → saluda ondeando; **arrastrable** (cae de vuelta al dock).
+  Acaríciala (varios clics) → 💗; zarandéala al arrastrar → 😵 mareo con estrellas.
 - **Se asoma** cuando llega una notificación.
-- **Configurable** por GSettings (tamaño, velocidad, activar/desactivar reacciones).
+- **Baila con música** 🎧 cuando hay un reproductor MPRIS sonando.
+- **Reacciones de sistema** 🔋 suda si la batería está baja o la CPU muy cargada.
+- **Sombreros de temporada** 🎄🎃🎂 opcionales (se ocultan al cocinar o dormir).
+- **Configurable** por GSettings (tamaño, velocidad, y activar/desactivar todo).
 
 ## Requisitos
 

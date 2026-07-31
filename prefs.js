@@ -73,9 +73,44 @@ export default class ClaudePetPrefs extends ExtensionPreferences {
 
         const filaCocina = new Adw.SwitchRow({
             title: 'Modo cocinando',
-            subtitle: 'Vapor mientras exista ~/.config/claude-pet/cocinando',
+            subtitle: 'Gorro de chef y vapor con Claude/VSCode abiertos',
         });
         gReac.add(filaCocina);
+
+        const filaMusica = new Adw.SwitchRow({
+            title: 'Bailar con música',
+            subtitle: 'Baila cuando suena un reproductor',
+        });
+        gReac.add(filaMusica);
+
+        const filaSistema = new Adw.SwitchRow({
+            title: 'Reacciones de sistema',
+            subtitle: 'Suda si la batería está baja o la CPU muy cargada',
+        });
+        gReac.add(filaSistema);
+
+        // --- Sombreros ---
+        const gHat = new Adw.PreferencesGroup({
+            title: 'Sombrero',
+            description: 'Adorno de cabeza (se oculta al cocinar o dormir)',
+        });
+        page.add(gHat);
+
+        const HATS = ['ninguno', 'navidad', 'halloween', 'cumple'];
+        const HATS_LABEL = ['Ninguno', 'Navidad 🎄', 'Halloween 🎃', 'Cumpleaños 🎂'];
+        const filaHat = new Adw.ComboRow({
+            title: 'Sombrero',
+            model: Gtk.StringList.new(HATS_LABEL),
+        });
+        gHat.add(filaHat);
+        filaHat.selected = Math.max(0, HATS.indexOf(settings.get_string('sombrero')));
+        filaHat.connect('notify::selected',
+            () => settings.set_string('sombrero', HATS[filaHat.selected]));
+        settings.connect('changed::sombrero', () => {
+            const i = HATS.indexOf(settings.get_string('sombrero'));
+            if (i >= 0 && i !== filaHat.selected)
+                filaHat.selected = i;
+        });
 
         // --- Enlaces con GSettings ---
         // Los SpinRow (valor double) los enlazamos manualmente con las claves int.
@@ -99,6 +134,10 @@ export default class ClaudePetPrefs extends ExtensionPreferences {
         settings.bind('dormir', filaDormir, 'active',
             Gio.SettingsBindFlags.DEFAULT);
         settings.bind('cocina', filaCocina, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('musica', filaMusica, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('sistema', filaSistema, 'active',
             Gio.SettingsBindFlags.DEFAULT);
     }
 }

@@ -37,7 +37,22 @@
     <key name="cocina" type="b">
       <default>true</default>
       <summary>Modo cocinando</summary>
-      <description>Muestra vapor de "cocina" mientras exista el fichero de estado ~/.config/claude-pet/cocinando.</description>
+      <description>Gorro de chef y vapor mientras Claude o VSCode están en marcha.</description>
+    </key>
+    <key name="musica" type="b">
+      <default>true</default>
+      <summary>Bailar con música</summary>
+      <description>Baila cuando hay un reproductor MPRIS reproduciendo.</description>
+    </key>
+    <key name="sistema" type="b">
+      <default>true</default>
+      <summary>Reacciones de sistema</summary>
+      <description>Suda cuando la batería está baja o la CPU muy cargada.</description>
+    </key>
+    <key name="sombrero" type="s">
+      <default>'ninguno'</default>
+      <summary>Sombrero</summary>
+      <description>Sombrero decorativo: ninguno, navidad, halloween o cumple.</description>
     </key>
   </schema>
 </schemalist>

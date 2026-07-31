@@ -62,6 +62,15 @@ const APPS_REACCION = [
     {k: ['discord', 'telegram', 'slack'], tipo: 'salto', ov: 'bubble'},
 ];
 const ACC = {note: 48 / 96, lens: 42 / 96, bubble: 36 / 96};   // ratios de accesorios
+// Sombreros de temporada (valor del ajuste -> fichero de icono).
+const SOMBREROS = {
+    ninguno: null, navidad: 'hat_navidad',
+    halloween: 'hat_halloween', cumple: 'hat_cumple',
+};
+const RATIO_SOMBRERO = 0.60;
+const RATIO_GOTITA = 0.28;
+const RATIO_PARTICULA = 0.28;   // corazones
+const RATIO_ESTRELLA = 0.18;    // mareo
 
 const FRAMES = {
     idle: ['idle_0', 'idle_1'],
@@ -71,6 +80,7 @@ const CADENCIA = {idle: 16, paseo: 4};
 const TODOS_FRAMES = [
     'idle_0', 'idle_1', 'walk_0', 'walk_1', 'walk_2', 'walk_3', 'jump_0', 'jump_1',
     'sleep_0', 'note', 'lens', 'bubble',
+    'hat_navidad', 'hat_halloween', 'hat_cumple', 'heart', 'sweat', 'star',
 ];
 
 export default class ClaudePetExtension extends Extension {
@@ -124,6 +134,17 @@ export default class ClaudePetExtension extends Extension {
         this._chef = this._nuevoOverlay('chef');
         this._sarten = this._nuevoOverlay('pan');
         this._accesorio = this._nuevoOverlay('note');   // gicon se cambia al reaccionar
+        this._sombrero = this._nuevoOverlay('hat_navidad');   // gicon según ajuste
+        this._gotita = this._nuevoOverlay('sweat');
+        this._particulas = [0, 1, 2].map(() => this._nuevoOverlay('heart'));
+        this._sombreroVisible = false;
+        this._musicaSonando = false;
+        this._musicaTick = 0;
+        this._baileTick = 0;
+        this._sisTick = 0;
+        this._clics = 0;
+        this._ultimoClic = 0;
+        this._dragDist = 0;
 
         // Señales del entorno.
         Main.layoutManager.connectObject(
@@ -184,6 +205,9 @@ export default class ClaudePetExtension extends Extension {
         this._dormirOn = this._settings.get_boolean('dormir');
         this._seguirOn = this._settings.get_boolean('seguir-cursor');
         this._cocinaOn = this._settings.get_boolean('cocina');
+        this._musicaOn = this._settings.get_boolean('musica');
+        this._sistemaOn = this._settings.get_boolean('sistema');
+        this._sombreroSel = this._settings.get_string('sombrero');
         this._padInf = Math.round(this._tamano * PAD_RATIO);
         if (this._pet)
             this._pet.icon_size = this._tamano;
@@ -192,6 +216,16 @@ export default class ClaudePetExtension extends Extension {
             if (actor)
                 actor.icon_size = Math.round(this._tamano * OVERLAYS[nombre]);
         }
+        // Overlays de las funciones nuevas.
+        const iconoHat = SOMBREROS[this._sombreroSel];
+        if (this._sombrero && iconoHat) {
+            this._sombrero.gicon = this._iconos[iconoHat];
+            this._sombrero.icon_size = Math.round(this._tamano * RATIO_SOMBRERO);
+        }
+        if (this._gotita)
+            this._gotita.icon_size = Math.round(this._tamano * RATIO_GOTITA);
+        for (const p of (this._particulas ?? []))
+            p.icon_size = Math.round(this._tamano * RATIO_PARTICULA);
         if (!this._dormirOn && this._modo === 'durmiendo')
             this._despertar();
         this._reposicionar();
@@ -321,6 +355,209 @@ export default class ClaudePetExtension extends Extension {
             this._raise();               // por encima de la UI del overview
 
         this._revisarCocina();
+        this._revisarSombrero();
+        this._revisarMusica();
+        this._revisarSistema();
+    }
+
+    // --- Sombrero de temporada ---
+
+    _revisarSombrero() {
+        const icono = SOMBREROS[this._sombreroSel];
+        const mostrar = !!icono && !this._cocinando && !this._oculto &&
+            this._modo !== 'durmiendo' && this._modo !== 'estirando';
+        if (mostrar !== this._sombreroVisible) {
+            this._sombreroVisible = mostrar;
+            if (this._sombrero) {
+                this._sombrero.remove_all_transitions();
+                this._sombrero.ease({
+                    opacity: mostrar ? 255 : 0, duration: 250,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                });
+            }
+        }
+    }
+
+    // --- Música (MPRIS por D-Bus) ---
+
+    _revisarMusica() {
+        if (!this._musicaOn) {
+            this._musicaSonando = false;
+            return;
+        }
+        this._musicaTick = (this._musicaTick + 1) % 16;   // consulta cada ~2 s
+        if (this._musicaTick === 0)
+            this._consultarMpris();
+        if (this._musicaSonando) {
+            this._baileTick++;
+            if (this._baileTick % 40 === 0)               // baila cada ~5 s
+                this._reaccionMusica();
+        }
+    }
+
+    _consultarMpris() {
+        try {
+            Gio.DBus.session.call(
+                'org.freedesktop.DBus', '/org/freedesktop/DBus',
+                'org.freedesktop.DBus', 'ListNames', null,
+                new GLib.VariantType('(as)'), Gio.DBusCallFlags.NONE, -1, null,
+                (bus, res) => {
+                    try {
+                        const [nombres] = bus.call_finish(res).deepUnpack();
+                        const p = nombres.find(
+                            n => n.startsWith('org.mpris.MediaPlayer2.'));
+                        if (!p) {
+                            this._musicaSonando = false;
+                            return;
+                        }
+                        Gio.DBus.session.call(
+                            p, '/org/mpris/MediaPlayer2',
+                            'org.freedesktop.DBus.Properties', 'Get',
+                            new GLib.Variant('(ss)',
+                                ['org.mpris.MediaPlayer2.Player', 'PlaybackStatus']),
+                            new GLib.VariantType('(v)'),
+                            Gio.DBusCallFlags.NONE, -1, null,
+                            (b2, r2) => {
+                                try {
+                                    const [estado] = b2.call_finish(r2).deepUnpack();
+                                    this._musicaSonando = estado === 'Playing';
+                                } catch (_e) {
+                                    this._musicaSonando = false;
+                                }
+                            });
+                    } catch (_e) {
+                        this._musicaSonando = false;
+                    }
+                });
+        } catch (_e) {}
+    }
+
+    _reaccionMusica() {
+        if (!this._pet || this._oculto ||
+            this._modo !== 'paseo' && this._modo !== 'idle')
+            return;
+        this._registrarActividad();
+        this._flotarAccesorio('note');
+        this._bailar();
+    }
+
+    // --- Reacciones de sistema (batería / CPU) ---
+
+    _revisarSistema() {
+        if (!this._sistemaOn)
+            return;
+        this._sisTick = (this._sisTick + 1) % 80;          // cada ~10 s
+        if (this._sisTick === 0 && this._sistemaEstresado())
+            this._sudar();
+    }
+
+    _sistemaEstresado() {
+        try {
+            const nproc = GLib.get_num_processors();
+            const [ok, data] = GLib.file_get_contents('/proc/loadavg');
+            if (ok) {
+                const load = parseFloat(new TextDecoder().decode(data).split(' ')[0]);
+                if (load > nproc * 0.9)
+                    return true;
+            }
+        } catch (_e) {}
+        for (const bat of ['BAT0', 'BAT1']) {
+            try {
+                const base = `/sys/class/power_supply/${bat}`;
+                if (!GLib.file_test(`${base}/capacity`, GLib.FileTest.EXISTS))
+                    continue;
+                const [okc, cap] = GLib.file_get_contents(`${base}/capacity`);
+                const [oks, est] = GLib.file_get_contents(`${base}/status`);
+                if (okc && oks) {
+                    const pct = parseInt(new TextDecoder().decode(cap));
+                    const estado = new TextDecoder().decode(est).trim();
+                    if (pct <= 15 && estado === 'Discharging')
+                        return true;
+                }
+            } catch (_e) {}
+        }
+        return false;
+    }
+
+    _sudar() {
+        if (!this._gotita || !this._pet || this._oculto)
+            return;
+        this._gotita.remove_all_transitions();
+        this._centrar(this._gotita,
+            this._pet.x + this._tamano * 0.72, this._pet.y + this._tamano * 0.10);
+        this._gotita.translation_y = 0;
+        this._gotita.opacity = 220;
+        this._gotita.ease({                                // la gota resbala hacia abajo
+            translation_y: this._tamano * 0.22, opacity: 0, duration: 900,
+            mode: Clutter.AnimationMode.EASE_IN_QUAD,
+        });
+    }
+
+    // --- Emociones (corazones / mareo) ---
+
+    _corazones() {
+        for (let i = 0; i < this._particulas.length; i++) {
+            const p = this._particulas[i];
+            p.gicon = this._iconos['heart'];
+            p.icon_size = Math.round(this._tamano * RATIO_PARTICULA);
+            p.remove_all_transitions();
+            p.translation_x = 0;
+            this._centrar(p,
+                this._pet.x + this._tamano * (0.32 + i * 0.18),
+                this._pet.y - this._tamano * 0.02);
+            p.translation_y = 0;
+            p.opacity = 255;
+            p.ease({
+                translation_y: -this._tamano * (0.5 + 0.12 * i), opacity: 0,
+                duration: 1100 + i * 150,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        }
+    }
+
+    _mareo() {
+        this._modo = 'mareo';
+        this._pet.gicon = this._iconos['idle_0'];
+        // estrellas que salen disparadas alrededor de la cabeza
+        for (let i = 0; i < this._particulas.length; i++) {
+            const p = this._particulas[i];
+            p.gicon = this._iconos['star'];
+            p.icon_size = Math.round(this._tamano * RATIO_ESTRELLA);
+            p.remove_all_transitions();
+            const ang = (i / this._particulas.length) * 2 * Math.PI;
+            this._centrar(p,
+                this._pet.x + this._tamano * 0.5, this._pet.y - this._tamano * 0.02);
+            p.translation_x = 0;
+            p.translation_y = 0;
+            p.opacity = 255;
+            p.ease({
+                translation_x: Math.cos(ang) * this._tamano * 0.4,
+                translation_y: Math.sin(ang) * this._tamano * 0.3 - this._tamano * 0.15,
+                opacity: 0, duration: 950,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        }
+        // bamboleo mareado
+        this._pet.remove_all_transitions();
+        const angs = [18, -18, 14, -14, 8, -8, 0];
+        let i = 0;
+        const paso = () => {
+            if (!this._pet)
+                return;
+            if (i >= angs.length) {
+                this._pet.rotation_angle_z = 0;
+                if (this._modo === 'mareo') {
+                    this._modo = 'paseo';
+                    this._idxFrame = 0;
+                }
+                return;
+            }
+            this._pet.ease({
+                rotation_angle_z: angs[i++], duration: 110,
+                mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD, onComplete: paso,
+            });
+        };
+        paso();
     }
 
     // --- Bucle de animación ---
@@ -328,12 +565,12 @@ export default class ClaudePetExtension extends Extension {
     _animar() {
         if (!this._pet)
             return;
-        this._sincronizarCocina();      // gorro + sartén siguen al pet en todo estado
+        this._sincronizarAdornos();     // gorro/sartén o sombrero siguen al pet
         if (this._oculto)
             return;
         if (this._modo === 'reaccion' || this._modo === 'saludo' ||
             this._modo === 'arrastrando' || this._modo === 'baile' ||
-            this._modo === 'estirando')
+            this._modo === 'estirando' || this._modo === 'mareo')
             return;                     // los mueve Clutter (ease) o el ratón
 
         const ahora = GLib.get_monotonic_time();
@@ -585,13 +822,17 @@ export default class ClaudePetExtension extends Extension {
             this._pet.rotation_angle_z * Math.sign(this._pet.scale_x || 1);
     }
 
-    _sincronizarCocina() {
-        if (!this._cocinando || this._oculto)
+    _sincronizarAdornos() {
+        if (this._oculto)
             return;
-        if (this._chef)
-            this._pegarAlPet(this._chef, 0.50, 0.10);    // gorro en la cabeza
-        if (this._sarten)
-            this._pegarAlPet(this._sarten, 0.82, 0.46);  // sartén en la mano derecha
+        if (this._cocinando) {                            // prioridad: cocina
+            if (this._chef)
+                this._pegarAlPet(this._chef, 0.50, 0.10);
+            if (this._sarten)
+                this._pegarAlPet(this._sarten, 0.82, 0.46);
+        } else if (this._sombreroVisible) {               // si no, sombrero
+            this._pegarAlPet(this._sombrero, 0.50, 0.02);
+        }
     }
 
     _lanzarVapor() {
@@ -754,9 +995,19 @@ export default class ClaudePetExtension extends Extension {
     }
 
     _saludar() {
-        if (!this._pet || this._oculto || !this._saludoClick ||
-            this._modo === 'reaccion' || this._modo === 'saludo')
+        if (!this._pet || this._oculto || !this._saludoClick)
             return;
+        // Caricias: 3 clics seguidos -> corazones (cuenta aunque esté ocupada).
+        const now = GLib.get_monotonic_time();
+        this._clics = now - this._ultimoClic < 1500000 ? this._clics + 1 : 1;
+        this._ultimoClic = now;
+        if (this._clics >= 3) {
+            this._clics = 0;
+            this._corazones();
+        }
+        if (this._modo === 'reaccion' || this._modo === 'saludo' ||
+            this._modo === 'baile' || this._modo === 'mareo')
+            return;                     // ya ocupada: el clic cuenta pero no re-saluda
         this._registrarActividad();
         this._modo = 'saludo';
         this._pet.gicon = this._iconos['jump_0'];
@@ -791,6 +1042,8 @@ export default class ClaudePetExtension extends Extension {
         this._pressPos = [px, py];
         this._pressOffset = [px - this._pet.x, py - this._pet.y];
         this._arrastrando = false;
+        this._dragDist = 0;
+        this._lastDragPos = [px, py];
         this._despertar();
         if (this._idCaptura)
             global.stage.disconnect(this._idCaptura);
@@ -817,6 +1070,9 @@ export default class ClaudePetExtension extends Extension {
             }
             if (this._arrastrando) {
                 this._registrarActividad();
+                const [lx, ly] = this._lastDragPos;
+                this._dragDist += Math.hypot(px - lx, py - ly);
+                this._lastDragPos = [px, py];
                 this._pet.set_position(
                     Math.round(px - this._pressOffset[0]),
                     Math.round(py - this._pressOffset[1]));
@@ -848,11 +1104,16 @@ export default class ClaudePetExtension extends Extension {
         this._x = destinoX;
         this._pet.ease({x: destinoX, duration: DUR_CAIDA,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        const mareado = this._dragDist > this._tamano * 6;   // lo zarandeaste
         this._pet.ease({
             y: this._perchY, duration: DUR_CAIDA,
             mode: Clutter.AnimationMode.EASE_OUT_BOUNCE,
             onComplete: () => {
-                if (this._modo === 'arrastrando') {
+                if (this._modo !== 'arrastrando')
+                    return;
+                if (mareado) {
+                    this._mareo();
+                } else {
                     this._modo = 'paseo';
                     this._idxFrame = 0;
                 }
@@ -872,12 +1133,14 @@ export default class ClaudePetExtension extends Extension {
         }
         if (oculto) {
             this._pararVapor();
-            for (const a of [this._zzz, this._luna, this._chef, this._sarten]) {
+            for (const a of [this._zzz, this._luna, this._chef, this._sarten,
+                this._sombrero, this._gotita]) {
                 if (a) {
                     a.remove_all_transitions();
                     a.opacity = 0;
                 }
             }
+            this._sombreroVisible = false;
         }
         const fuera = this._tamano + MARGEN_ABAJO + 40;
         this._pet.remove_all_transitions();
@@ -908,8 +1171,14 @@ export default class ClaudePetExtension extends Extension {
         Shell.WindowTracker.get_default().disconnectObject(this);
         global.display.disconnectObject(this);
         this._settings?.disconnectObject(this);
+        for (const p of (this._particulas ?? [])) {
+            p.remove_all_transitions();
+            Main.layoutManager.removeChrome(p);
+            p.destroy();
+        }
+        this._particulas = null;
         for (const a of ['_zzz', '_luna', '_vapor', '_chef', '_sarten',
-            '_accesorio', '_pet']) {
+            '_accesorio', '_sombrero', '_gotita', '_pet']) {
             if (this[a]) {
                 this[a].remove_all_transitions();
                 Main.layoutManager.removeChrome(this[a]);
