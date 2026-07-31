@@ -411,7 +411,7 @@ export default class ClaudePetExtension extends Extension {
                         const players = nombres.filter(
                             n => n.startsWith('org.mpris.MediaPlayer2.'));
                         if (players.length === 0) {
-                            this._musicaSonando = false;
+                            this._musicaEstado(false);
                             return;
                         }
                         let pendientes = players.length;
@@ -426,12 +426,16 @@ export default class ClaudePetExtension extends Extension {
                                 Gio.DBusCallFlags.NONE, -1, null,
                                 (b2, r2) => {
                                     try {
-                                        const [estado] = b2.call_finish(r2).deepUnpack();
+                                        // OJO: deepUnpack() NO desenvuelve el tipo
+                                        // 'v' de MPRIS (devuelve un GLib.Variant, no
+                                        // la cadena) -> hay que usar recursiveUnpack().
+                                        const [estado] =
+                                            b2.call_finish(r2).recursiveUnpack();
                                         if (estado === 'Playing')
                                             alguno = true;
                                     } catch (_e) {}
                                     if (--pendientes === 0)
-                                        this._musicaSonando = alguno;
+                                        this._musicaEstado(alguno);
                                 });
                         }
                     } catch (_e) {
@@ -439,6 +443,16 @@ export default class ClaudePetExtension extends Extension {
                     }
                 });
         } catch (_e) {}
+    }
+
+    // Cambio de estado de reproducción: al ARRANCAR la música baila enseguida.
+    _musicaEstado(sonando) {
+        const antes = this._musicaSonando;
+        this._musicaSonando = sonando;
+        if (sonando && !antes) {
+            this._baileTick = 0;
+            this._reaccionMusica();
+        }
     }
 
     _reaccionMusica() {
