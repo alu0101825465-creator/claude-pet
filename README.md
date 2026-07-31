@@ -37,7 +37,7 @@ duerme. **100 % local, sin ninguna llamada de red.**
 ### Opción A — desde el código (recomendada para desarrollar)
 
 ```bash
-git clone https://github.com/<usuario>/claude-pet.git
+git clone https://github.com/alu0101825465-creator/claude-pet.git
 cd claude-pet
 ./install.sh                       # copia a ~/.local/share/... y compila el esquema
 gnome-extensions enable claude-pet@gumer
