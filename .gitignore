@@ -1,0 +1,7 @@
+# Python (herramientas de build)
+__pycache__/
+*.pyc
+
+# Empaquetados
+*.zip
+*.shell-extension.zip

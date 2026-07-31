@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.claude-pet"
+          path="/org/gnome/shell/extensions/claude-pet/">
+    <key name="velocidad" type="i">
+      <default>60</default>
+      <range min="10" max="200"/>
+      <summary>Velocidad del paseo</summary>
+      <description>Píxeles por segundo con que la mascota recorre el dock.</description>
+    </key>
+    <key name="tamano" type="i">
+      <default>96</default>
+      <range min="48" max="160"/>
+      <summary>Tamaño</summary>
+      <description>Lado del sprite en píxeles.</description>
+    </key>
+    <key name="reaccion-apps" type="b">
+      <default>true</default>
+      <summary>Saltar al abrir/activar apps</summary>
+      <description>Salta cuando se lanza o se activa una aplicación, o se abre una ventana.</description>
+    </key>
+    <key name="saludo-click" type="b">
+      <default>true</default>
+      <summary>Saludar al hacer clic</summary>
+      <description>Ondea al pulsar sobre la mascota.</description>
+    </key>
+    <key name="dormir" type="b">
+      <default>true</default>
+      <summary>Dormirse tras inactividad</summary>
+      <description>Se echa una siesta (con zzz) si pasa un rato sin actividad.</description>
+    </key>
+    <key name="seguir-cursor" type="b">
+      <default>true</default>
+      <summary>Seguir el cursor</summary>
+      <description>Camina hacia el ratón cuando lo acercas a la zona del dock.</description>
+    </key>
+    <key name="cocina" type="b">
+      <default>true</default>
+      <summary>Modo cocinando</summary>
+      <description>Muestra vapor de "cocina" mientras exista el fichero de estado ~/.config/claude-pet/cocinando.</description>
+    </key>
+  </schema>
+</schemalist>
