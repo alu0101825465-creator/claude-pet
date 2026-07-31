@@ -99,6 +99,31 @@ python3 procesar_sprite.py ./sprite_fuente.webp --tam 96
 ./install.sh
 ```
 
+## Dibujar tus propios gorros y accesorios
+
+Puedes sustituir cualquier adorno por un dibujo tuyo, sin tocar código.
+
+**Editor recomendado:** [Pixelorama](https://orama-interactive.itch.io/pixelorama)
+(`flatpak install flathub com.orama_interactive.Pixelorama`) o
+[LibreSprite](https://libresprite.github.io/)
+(`flatpak install flathub com.github.libresprite.LibreSprite`).
+
+1. Dibuja con **fondo transparente**, al tamaño que quieras (p. ej. 12×10 px).
+2. Expórtalo a PNG.
+3. Impórtalo con el ayudante, que lo adapta solo (escala sin suavizado, lienzo
+   cuadrado, y lo ancla abajo si es un sombrero):
+
+```bash
+python3 importar_arte.py mi_gorro.png navidad     # o halloween, cumple, chef,
+                                                  # pan, moon, zeta, steam, note,
+                                                  # lens, bubble, heart, sweat, star
+./install.sh
+```
+4. **Cierra sesión y vuelve a entrar** (los PNG se cachean por sesión).
+
+> Los sombreros se apoyan por su **borde inferior** sobre la cabeza, así que
+> dibuja el gorro tocando el borde de abajo del lienzo.
+
 ## Ciclo de prueba
 
 `./install.sh` → cerrar sesión y entrar. Logs:
