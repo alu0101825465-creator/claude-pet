@@ -67,7 +67,9 @@ const SOMBREROS = {
     ninguno: null, navidad: 'hat_navidad',
     halloween: 'hat_halloween', cumple: 'hat_cumple',
 };
-const RATIO_SOMBRERO = 0.60;
+const RATIO_SOMBRERO = 0.68;
+const TECHO_CABEZA = 21 / 96;   // dónde empieza la cabeza en el sprite (medido)
+const SOLAPE_SOMBRERO = 0.05;   // cuánto se hunde el sombrero en la cabeza
 const RATIO_GOTITA = 0.28;
 const RATIO_PARTICULA = 0.28;   // corazones
 const RATIO_ESTRELLA = 0.18;    // mareo
@@ -404,27 +406,34 @@ export default class ClaudePetExtension extends Extension {
                 (bus, res) => {
                     try {
                         const [nombres] = bus.call_finish(res).deepUnpack();
-                        const p = nombres.find(
+                        // OJO: hay que mirar TODOS los reproductores, no solo el
+                        // primero (p. ej. Brave parado + Spotify sonando).
+                        const players = nombres.filter(
                             n => n.startsWith('org.mpris.MediaPlayer2.'));
-                        if (!p) {
+                        if (players.length === 0) {
                             this._musicaSonando = false;
                             return;
                         }
-                        Gio.DBus.session.call(
-                            p, '/org/mpris/MediaPlayer2',
-                            'org.freedesktop.DBus.Properties', 'Get',
-                            new GLib.Variant('(ss)',
-                                ['org.mpris.MediaPlayer2.Player', 'PlaybackStatus']),
-                            new GLib.VariantType('(v)'),
-                            Gio.DBusCallFlags.NONE, -1, null,
-                            (b2, r2) => {
-                                try {
-                                    const [estado] = b2.call_finish(r2).deepUnpack();
-                                    this._musicaSonando = estado === 'Playing';
-                                } catch (_e) {
-                                    this._musicaSonando = false;
-                                }
-                            });
+                        let pendientes = players.length;
+                        let alguno = false;
+                        for (const p of players) {
+                            Gio.DBus.session.call(
+                                p, '/org/mpris/MediaPlayer2',
+                                'org.freedesktop.DBus.Properties', 'Get',
+                                new GLib.Variant('(ss)',
+                                    ['org.mpris.MediaPlayer2.Player', 'PlaybackStatus']),
+                                new GLib.VariantType('(v)'),
+                                Gio.DBusCallFlags.NONE, -1, null,
+                                (b2, r2) => {
+                                    try {
+                                        const [estado] = b2.call_finish(r2).deepUnpack();
+                                        if (estado === 'Playing')
+                                            alguno = true;
+                                    } catch (_e) {}
+                                    if (--pendientes === 0)
+                                        this._musicaSonando = alguno;
+                                });
+                        }
                     } catch (_e) {
                         this._musicaSonando = false;
                     }
@@ -568,6 +577,18 @@ export default class ClaudePetExtension extends Extension {
         this._sincronizarAdornos();     // gorro/sartén o sombrero siguen al pet
         if (this._oculto)
             return;
+
+        // AUTO-CURACIÓN: si una reacción llamó remove_all_transitions() en mitad
+        // del fundido de mostrar/ocultar, la opacidad (o el desplazamiento) se
+        // quedaba congelada y el cuerpo desaparecía dejando solo los adornos.
+        // Si no hay transición viva, restauramos los valores neutros.
+        if (!this._pet.get_transition('opacity') && this._pet.opacity !== 255)
+            this._pet.opacity = 255;
+        if ((this._modo === 'paseo' || this._modo === 'idle' ||
+             this._modo === 'durmiendo') &&
+            !this._pet.get_transition('translation-y') &&
+            this._pet.translation_y !== 0)
+            this._pet.translation_y = 0;
         if (this._modo === 'reaccion' || this._modo === 'saludo' ||
             this._modo === 'arrastrando' || this._modo === 'baile' ||
             this._modo === 'estirando' || this._modo === 'mareo')
@@ -831,8 +852,28 @@ export default class ClaudePetExtension extends Extension {
             if (this._sarten)
                 this._pegarAlPet(this._sarten, 0.82, 0.46);
         } else if (this._sombreroVisible) {               // si no, sombrero
-            this._pegarAlPet(this._sombrero, 0.50, 0.02);
+            this._pegarSombrero();
         }
+    }
+
+    // El sombrero se ancla por su BORDE INFERIOR al techo de la cabeza (su PNG
+    // tiene el dibujo pegado abajo), así se apoya en vez de flotar.
+    _pegarSombrero() {
+        const a = this._sombrero;
+        if (!a)
+            return;
+        const s = a.icon_size;
+        const ty = this._pet.translation_y || 0;
+        const cx = this._pet.x + this._tamano * 0.5;
+        const base = this._pet.y + ty +
+            this._tamano * (TECHO_CABEZA + SOLAPE_SOMBRERO);
+        const ax = cx - s / 2, ay = base - s;
+        a.set_position(Math.round(ax), Math.round(ay));
+        const pivX = this._pet.x + this._tamano / 2;      // mismo pivote que el pet
+        const pivY = this._pet.y + ty + this._tamano;
+        a.set_pivot_point((pivX - ax) / s, (pivY - ay) / s);
+        a.rotation_angle_z =
+            this._pet.rotation_angle_z * Math.sign(this._pet.scale_x || 1);
     }
 
     _lanzarVapor() {

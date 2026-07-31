@@ -190,17 +190,23 @@ def stamp(draw, grid, colores, block, x0, y0):
                 draw.rectangle([X, Y, X + block - 1, Y + block - 1], fill=c)
 
 
-def png_de_grid(grid, colores, block, ruta):
+def png_de_grid(grid, colores, block, ruta, anclaje='centro'):
+    """anclaje='abajo' deja el contenido pegado al borde INFERIOR del cuadrado.
+
+    St.Icon fuerza lienzo cuadrado; si el dibujo es apaisado queda relleno
+    transparente arriba y abajo. Para los sombreros eso los hacía "flotar", así
+    que se anclan abajo y la extensión los posiciona por su borde inferior.
+    """
     w, h = len(grid[0]) * block, len(grid) * block
     img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
     stamp(ImageDraw.Draw(img), grid, colores, block, 0, 0)
     img = img.crop(img.getbbox())
-    # Padear a CUADRADO (St.Icon fuerza cuadrado; así no se deforma).
     lado = max(img.width, img.height)
     cuad = Image.new('RGBA', (lado, lado), (0, 0, 0, 0))
-    cuad.paste(img, ((lado - img.width) // 2, (lado - img.height) // 2), img)
+    off_y = lado - img.height if anclaje == 'abajo' else (lado - img.height) // 2
+    cuad.paste(img, ((lado - img.width) // 2, off_y), img)
     cuad.save(ruta)
-    print(f'escrito {ruta} ({lado}x{lado})')
+    print(f'escrito {ruta} ({lado}x{lado}, anclaje={anclaje})')
 
 
 GRID_GORRO = [
@@ -247,22 +253,34 @@ GRID_CHEF = [
     '.WWWWW.',
     'WWWWWWW',
 ]
+# Gorro de Papá Noel: pompón blanco arriba-derecha, cuerpo rojo escalonado
+# cayendo hacia la izquierda y banda blanca gruesa abajo.
 GRID_HAT_NAVIDAD = [
-    '.........OOO',
-    '........OOOO',
-    '.....RRRRR..',
-    '...RRRRRRRR.',
+    '........OOO.',
+    '.......OOOOO',
+    '.......OOOO.',
+    '.....RRRR...',
+    '....RRRRR...',
+    '...RRRRRR...',
+    '..RRRRRRR...',
+    '.RRRRRRRR...',
     'OOOOOOOOOOOO',
     'OOOOOOOOOOOO',
 ]
+# Calabaza de Halloween (jack-o'-lantern) con rabito verde.
 GRID_HAT_HALLOWEEN = [
-    '.....XX.....',
-    '.....XX.....',
-    '....XXXX....',
-    '...XXXXXX...',
-    '..XXXXXXXX..',
-    'PPPPPPPPPPPP',
-    'PPPPPPPPPPPP',
+    '.....GG...',
+    '....GG....',
+    '..CCCCCC..',
+    '.CCCCCCCC.',
+    'CCCCCCCCCC',
+    'CXXCCCCXXC',
+    'CCXCCCCXCC',
+    'CCCCCCCCCC',
+    'CXCCCCCCXC',
+    'CXXXXXXXXC',
+    '.CXCCCCXC.',
+    '..CCCCCC..',
 ]
 GRID_HAT_CUMPLE = [
     '.....O.....',
@@ -338,6 +356,8 @@ COL = {
     'P': (108, 60, 150, 255),        # morado (ala de bruja)
     'A': (240, 120, 170, 255),       # rosa (fiesta)
     'Q': (110, 170, 235, 255),       # azul (gotita de sudor)
+    'C': (235, 125, 30, 255),        # naranja calabaza
+    'G': (95, 145, 60, 255),         # verde rabito
 }
 
 
@@ -427,9 +447,10 @@ def main():
     png_de_grid(GRID_NOTE, COL, block, 'assets/note.png')
     png_de_grid(GRID_LENS, COL, block, 'assets/lens.png')
     png_de_grid(GRID_BUBBLE, COL, block, 'assets/bubble.png')
-    png_de_grid(GRID_HAT_NAVIDAD, COL, block, 'assets/hat_navidad.png')
-    png_de_grid(GRID_HAT_HALLOWEEN, COL, block, 'assets/hat_halloween.png')
-    png_de_grid(GRID_HAT_CUMPLE, COL, block, 'assets/hat_cumple.png')
+    # Sombreros: anclados abajo (se posicionan por su borde inferior).
+    png_de_grid(GRID_HAT_NAVIDAD, COL, block, 'assets/hat_navidad.png', 'abajo')
+    png_de_grid(GRID_HAT_HALLOWEEN, COL, block, 'assets/hat_halloween.png', 'abajo')
+    png_de_grid(GRID_HAT_CUMPLE, COL, block, 'assets/hat_cumple.png', 'abajo')
     png_de_grid(GRID_HEART, COL, block, 'assets/heart.png')
     png_de_grid(GRID_SWEAT, COL, block, 'assets/sweat.png')
     png_de_grid(GRID_STAR, COL, block_z, 'assets/star.png')
