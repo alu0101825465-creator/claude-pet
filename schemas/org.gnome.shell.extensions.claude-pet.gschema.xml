@@ -2,57 +2,72 @@
 <schemalist>
   <schema id="org.gnome.shell.extensions.claude-pet"
           path="/org/gnome/shell/extensions/claude-pet/">
-    <key name="velocidad" type="i">
+    <key name="speed" type="i">
       <default>60</default>
       <range min="10" max="200"/>
-      <summary>Velocidad del paseo</summary>
-      <description>Píxeles por segundo con que la mascota recorre el dock.</description>
+      <summary>Walking speed</summary>
+      <description>Pixels per second the pet walks along the dock.</description>
     </key>
-    <key name="tamano" type="i">
+    <key name="size" type="i">
       <default>96</default>
       <range min="48" max="160"/>
-      <summary>Tamaño</summary>
-      <description>Lado del sprite en píxeles.</description>
+      <summary>Size</summary>
+      <description>Sprite side length in pixels.</description>
     </key>
-    <key name="reaccion-apps" type="b">
+    <key name="react-apps" type="b">
       <default>true</default>
-      <summary>Saltar al abrir/activar apps</summary>
-      <description>Salta cuando se lanza o se activa una aplicación, o se abre una ventana.</description>
+      <summary>React to applications</summary>
+      <description>Jump when an app is launched or focused; app-specific props.</description>
     </key>
-    <key name="saludo-click" type="b">
+    <key name="wave-on-click" type="b">
       <default>true</default>
-      <summary>Saludar al hacer clic</summary>
-      <description>Ondea al pulsar sobre la mascota.</description>
+      <summary>Wave when clicked</summary>
+      <description>Wave on click, hearts when petted, dizzy when shaken.</description>
     </key>
-    <key name="dormir" type="b">
+    <key name="follow-cursor" type="b">
       <default>true</default>
-      <summary>Dormirse tras inactividad</summary>
-      <description>Se echa una siesta (con zzz) si pasa un rato sin actividad.</description>
+      <summary>Follow the cursor</summary>
+      <description>Walk towards the pointer when it comes near the dock.</description>
     </key>
-    <key name="seguir-cursor" type="b">
+    <key name="sleep" type="b">
       <default>true</default>
-      <summary>Seguir el cursor</summary>
-      <description>Camina hacia el ratón cuando lo acercas a la zona del dock.</description>
+      <summary>Sleep when idle</summary>
+      <description>Stretch and take a nap after a few seconds of inactivity.</description>
     </key>
-    <key name="cocina" type="b">
+    <key name="cooking" type="b">
       <default>true</default>
-      <summary>Modo cocinando</summary>
-      <description>Gorro de chef y vapor mientras Claude o VSCode están en marcha.</description>
+      <summary>Cooking mode</summary>
+      <description>Chef hat, frying pan and steam while Claude or VS Code run.</description>
     </key>
-    <key name="musica" type="b">
+    <key name="music" type="b">
       <default>true</default>
-      <summary>Bailar con música</summary>
-      <description>Baila cuando hay un reproductor MPRIS reproduciendo.</description>
+      <summary>Music notes</summary>
+      <description>Emit colourful notes while a media player is playing.</description>
     </key>
-    <key name="sistema" type="b">
+    <key name="system-reactions" type="b">
       <default>true</default>
-      <summary>Reacciones de sistema</summary>
-      <description>Suda cuando la batería está baja o la CPU muy cargada.</description>
+      <summary>System reactions</summary>
+      <description>Sweat when the battery is low or the CPU is under load.</description>
     </key>
-    <key name="sombrero" type="s">
-      <default>'ninguno'</default>
-      <summary>Sombrero</summary>
-      <description>Sombrero decorativo: ninguno, navidad, halloween o cumple.</description>
+    <key name="speech" type="b">
+      <default>true</default>
+      <summary>Speech bubbles</summary>
+      <description>Show short messages in a speech bubble.</description>
+    </key>
+    <key name="daily-routine" type="b">
+      <default>true</default>
+      <summary>Daily routine</summary>
+      <description>Morning coffee, greetings, and sleepier behaviour at night.</description>
+    </key>
+    <key name="claude-hooks" type="b">
+      <default>true</default>
+      <summary>Claude Code integration</summary>
+      <description>React to ~/.config/claude-pet/state written by Claude Code hooks.</description>
+    </key>
+    <key name="hat" type="s">
+      <default>'none'</default>
+      <summary>Hat</summary>
+      <description>Decorative hat: none, christmas, halloween, birthday or auto.</description>
     </key>
   </schema>
 </schemalist>

@@ -1,137 +1,138 @@
 # Claude Pet 🐙👨‍🍳
 
-Extensión de **GNOME Shell** (Wayland/X11, GNOME 45+) que muestra una **mascota
-animada de Claude Code** —un pulpo naranja pixel-art— posada sobre el dock,
-siempre visible por encima de las ventanas. Camina, reacciona a lo que haces y
-duerme. **100 % local, sin ninguna llamada de red.**
+A **GNOME Shell extension** (GNOME 45+, Wayland and X11) that puts an **animated
+pixel-art pet** on top of your dock, always visible above your windows. It walks
+around, reacts to what you do, and naps when you leave it alone.
+**Fully local — no network access whatsoever.**
 
 - **UUID:** `claude-pet@gumer`
-- **Probada en:** GNOME Shell 50 (Fedora 44), Wayland.
+- **Tested on:** GNOME Shell 50 (Fedora 44), Wayland.
 
-## Qué hace
+## What it does
 
-- **Camina** por encima del dock moviendo las patitas; se para y gira en los extremos.
-- **Se sincroniza con el auto-ocultado del dock** (Dash2Dock Animated): si el dock
-  se esconde, ella se desliza hacia abajo; si aparece, sube. *(Opcional — ver abajo.)*
-- **Salta** (manos arriba + parpadeo) al abrir o cambiar de aplicación.
-- **Reacciones por app:** 🎵 Spotify/VLC → baila con nota musical; 🔍 navegador →
-  lupa; 💬 Discord → burbuja de chat.
-- **Modo cocina** 👨‍🍳: gorro de chef + sartén con humo mientras **Claude** o
-  **VSCode** están en marcha.
-- **Se duerme** tras unos segundos de inactividad (se estira, se acuesta con gorro
-  de dormir + luna 🌙 y zzz).
-- **Interactiva:** clic → saluda ondeando; **arrastrable** (cae de vuelta al dock).
-  Acaríciala (varios clics) → 💗; zarandéala al arrastrar → 😵 mareo con estrellas.
-- **Se asoma** cuando llega una notificación.
-- **Baila con música** 🎧 cuando hay un reproductor MPRIS sonando.
-- **Reacciones de sistema** 🔋 suda si la batería está baja o la CPU muy cargada.
-- **Sombreros de temporada** 🎄🎃🎂 opcionales (se ocultan al cocinar o dormir).
-- **Configurable** por GSettings (tamaño, velocidad, y activar/desactivar todo).
+- **Walks** along the dock, moving its little legs, and turns around at the ends.
+- **Follows the dock's auto-hide**: slides away when the dock hides, comes back
+  with it. Works with Dash2Dock Animated, Dash to Dock, the Ubuntu dock, or no
+  dock at all.
+- **Jumps** when you launch or switch to an app, with **app-specific props**:
+  🎵 media players, 🔍 browsers, 💬 chat apps.
+- **Cooking mode** 👨‍🍳: chef hat, frying pan and steam while Claude Code or
+  VS Code are running — or driven by real **Claude Code hooks** (see `hooks/`).
+- **Sleeps** when idle: stretches, lies down with a sleep cap, moon and z's.
+  Falls asleep sooner at night.
+- **Interactive**: click to wave, pet it (a few clicks) for hearts, **drag it**
+  anywhere and watch it bounce back.
+- **Music notes** 🎶 in rotating colours while any player is actually playing.
+- **System reactions** 🔋: breaks a sweat when the battery is low or the CPU is
+  pegged.
+- **Speech bubbles** and a **daily routine**: greetings, a morning coffee, and an
+  optional seasonal hat that changes itself in October and December.
+- **Light on resources**: the timers slow down while it sleeps and stop entirely
+  while it is hidden.
 
-## Requisitos
+## Requirements
 
-- **GNOME Shell 45–50** (formato ESM). En < 45 no funciona; en 51+ añade `"51"` a
-  `shell-version` en `metadata.json`.
-- **Opcional:** [Dash2Dock Animated](https://extensions.gnome.org/extension/4994/dash2dock-lite/)
-  (`dash2dock-lite@icedman.github.com`) para posarse sobre él y sincronizar el
-  ocultado. **Sin él**, la mascota degrada a "abajo-izquierda, siempre visible".
+- **GNOME Shell 45–50** (ESM format). It will not run on < 45; on 51+ add `"51"`
+  to `shell-version` in `metadata.json`.
+- **Optional:** a bottom dock. It is tuned for
+  [Dash2Dock Animated](https://extensions.gnome.org/extension/4994/dash2dock-lite/),
+  detects Dash to Dock and the Ubuntu dock, and otherwise falls back to sitting
+  at the bottom-left of the screen.
 
-## Instalación
+## Install
 
-### Opción A — desde el código (recomendada para desarrollar)
+### From source
 
 ```bash
 git clone https://github.com/alu0101825465-creator/claude-pet.git
 cd claude-pet
-./install.sh                       # copia a ~/.local/share/... y compila el esquema
+./install.sh
 gnome-extensions enable claude-pet@gumer
 ```
-Luego **cierra sesión y vuelve a entrar** (en Wayland no se puede recargar el shell
-en caliente).
 
-### Opción B — desde un zip empaquetado
+Then **log out and back in** — on Wayland the shell cannot be reloaded in place.
+
+### From a release zip
 
 ```bash
 mkdir -p ~/.local/share/gnome-shell/extensions/claude-pet@gumer
 unzip -o claude-pet@gumer.zip -d ~/.local/share/gnome-shell/extensions/claude-pet@gumer/
-gnome-extensions enable claude-pet@gumer     # tras cerrar y abrir sesión
+gnome-extensions enable claude-pet@gumer     # after logging back in
 ```
 
-> **Nota sobre Wayland:** los cambios de **imágenes (PNG)** no se refrescan con
-> `disable/enable` (GNOME cachea texturas por sesión). Para verlos hace falta
-> **cerrar sesión y entrar**.
+> **Wayland note:** changes to **images** are not picked up by
+> `disable`/`enable` — the shell caches textures per session. Log out and back in
+> to see new artwork.
 
-## Preferencias
+## Preferences
 
 ```bash
 gnome-extensions prefs claude-pet@gumer
 ```
-Tamaño, velocidad del paseo, y activar/desactivar: saltar al abrir apps, saludar al
-clic, seguir el cursor, dormir, modo cocina.
 
-## Modo cocina por fichero (hook)
+Size, walking speed, hat, and switches for every reaction: apps, click, cursor
+following, sleep, music, system, speech bubbles, daily routine and Claude Code.
 
-Además de detectar Claude/VSCode, el modo cocina se activa si existe el fichero
-`~/.config/claude-pet/cocinando`. Puedes engancharlo a un hook para que cocine
-mientras Claude trabaja:
+## Claude Code integration
+
+See [`hooks/README.md`](hooks/README.md). In short: a small script writes
+`working`, `done` or `error` into `~/.config/claude-pet/state`, and the extension
+watches that file so the pet cooks while Claude works, celebrates when a task
+finishes and looks worried on failures.
 
 ```bash
-touch ~/.config/claude-pet/cocinando   # empieza a "cocinar"
-rm    ~/.config/claude-pet/cocinando   # deja de cocinar
+~/.local/bin/claude-pet-state.sh working   # try it by hand
 ```
 
-## Arquitectura (para desarrollar)
+## Draw your own hats and props
 
-- `extension.js` — núcleo: `enable()`/`disable()`, máquina de estados
-  (paseo · idle · reacción · saludo · baile · arrastrando · durmiendo · estirando),
-  y todos los overlays. Del dock solo **lee** (estado + geometría), de forma
-  defensiva.
-- `prefs.js` — panel de preferencias (libadwaita).
-- `schemas/` — esquema GSettings (`./install.sh` compila `gschemas.compiled`).
-- `assets/` — todos los fotogramas y overlays en PNG (**ya generados**).
-- `procesar_sprite.py` — herramienta de build (solo Pillow): genera los PNG desde
-  `sprite_fuente.webp` (quita el fondo, detecta patas/brazos, dibuja gorros/luna/z/
-  vapor/chef/sartén en pixel-art). **No la necesitas para usar la extensión.**
+Use [Pixelorama](https://orama-interactive.itch.io/pixelorama)
+(`flatpak install flathub com.orama_interactive.Pixelorama`) or
+[LibreSprite](https://libresprite.github.io/).
 
-Regenerar los sprites tras editar el arte o los grids:
+1. Draw with a **transparent background** at any size (12×10 px is plenty).
+2. Export to PNG.
+3. Import it — the helper crops, scales without smoothing, squares the canvas and
+   bottom-anchors hats for you:
+
 ```bash
-python3 procesar_sprite.py ./sprite_fuente.webp --tam 96
+python3 import_art.py my_hat.png christmas   # or halloween, birthday, chef,
+                                             # pan, moon, zeta, steam, note,
+                                             # lens, bubble, heart, sweat,
+                                             # star, coffee
+./install.sh
+```
+4. **Log out and back in.**
+
+> Hats rest on the head by their **bottom edge**, so draw them touching the
+> bottom of the canvas.
+
+## Project layout
+
+| Path | What it is |
+|---|---|
+| `extension.js` | The extension: state machine, overlays, dock discovery, timers. |
+| `prefs.js` | Preferences dialog (libadwaita). |
+| `schemas/` | GSettings schema (`install.sh` compiles it). |
+| `assets/` | Every frame and overlay as PNG — already generated. |
+| `hooks/` | Claude Code hook script and setup instructions. |
+| `build_sprites.py` | Build tool: regenerates all art from `sprite_fuente.webp`. |
+| `import_art.py` | Build tool: imports your own drawings. |
+
+Regenerate the artwork after editing the grids:
+
+```bash
+python3 build_sprites.py ./sprite_fuente.webp --size 96
 ./install.sh
 ```
 
-## Dibujar tus propios gorros y accesorios
+## Debugging
 
-Puedes sustituir cualquier adorno por un dibujo tuyo, sin tocar código.
-
-**Editor recomendado:** [Pixelorama](https://orama-interactive.itch.io/pixelorama)
-(`flatpak install flathub com.orama_interactive.Pixelorama`) o
-[LibreSprite](https://libresprite.github.io/)
-(`flatpak install flathub com.github.libresprite.LibreSprite`).
-
-1. Dibuja con **fondo transparente**, al tamaño que quieras (p. ej. 12×10 px).
-2. Expórtalo a PNG.
-3. Impórtalo con el ayudante, que lo adapta solo (escala sin suavizado, lienzo
-   cuadrado, y lo ancla abajo si es un sombrero):
-
-```bash
-python3 importar_arte.py mi_gorro.png navidad     # o halloween, cumple, chef,
-                                                  # pan, moon, zeta, steam, note,
-                                                  # lens, bubble, heart, sweat, star
-./install.sh
-```
-4. **Cierra sesión y vuelve a entrar** (los PNG se cachean por sesión).
-
-> Los sombreros se apoyan por su **borde inferior** sobre la cabeza, así que
-> dibuja el gorro tocando el borde de abajo del lienzo.
-
-## Ciclo de prueba
-
-`./install.sh` → cerrar sesión y entrar. Logs:
 ```bash
 journalctl --user -b 0 -o cat /usr/bin/gnome-shell | grep -iE 'claude-pet|JS ERROR'
 ```
 
-## Créditos y licencia
+## Credits and licence
 
-Proyecto de aprendizaje. La imagen del personaje es el pixel-art de Claude Code.
-Código bajo licencia **MIT** (ver `LICENSE`).
+A learning project. The character artwork is the Claude Code pixel-art mascot.
+Code released under the **MIT** licence (see `LICENSE`).

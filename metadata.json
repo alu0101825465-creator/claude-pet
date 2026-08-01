@@ -1,9 +1,9 @@
 {
   "uuid": "claude-pet@gumer",
   "name": "Claude Pet",
-  "description": "Mascota animada de Claude Code posada sobre el dock, siempre visible por encima de las ventanas. 100% local, sin llamadas de red. Proyecto de aprendizaje.",
+  "description": "An animated pixel-art pet that lives on top of your dock, above every window. It walks, reacts to your apps and music, cooks while Claude Code works, and naps when you leave it alone. Fully local, no network access.",
   "shell-version": ["45", "46", "47", "48", "49", "50"],
-  "version": 1,
+  "version": 2,
   "settings-schema": "org.gnome.shell.extensions.claude-pet",
-  "url": "https://local/claude-pet"
+  "url": "https://github.com/alu0101825465-creator/claude-pet"
 }

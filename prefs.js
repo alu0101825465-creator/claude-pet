@@ -1,11 +1,15 @@
-// Panel de preferencias del Claude pet (libadwaita).
-// Se abre con: gnome-extensions prefs claude-pet@gumer
+// Claude Pet preferences (libadwaita).
+// Open with: gnome-extensions prefs claude-pet@gumer
 
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 import Gio from 'gi://Gio';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+
+const HATS = ['none', 'christmas', 'halloween', 'birthday', 'auto'];
+const HAT_LABELS = ['None', 'Christmas 🎅', 'Halloween 🎃', 'Birthday 🎂',
+    'Automatic (by season)'];
 
 export default class ClaudePetPrefs extends ExtensionPreferences {
     fillPreferencesWindow(window) {
@@ -17,127 +21,144 @@ export default class ClaudePetPrefs extends ExtensionPreferences {
         });
         window.add(page);
 
-        // --- Aspecto ---
-        const gAspecto = new Adw.PreferencesGroup({title: 'Aspecto'});
-        page.add(gAspecto);
+        // --- Appearance ---
+        const appearance = new Adw.PreferencesGroup({title: 'Appearance'});
+        page.add(appearance);
 
-        const filaTamano = new Adw.SpinRow({
-            title: 'Tamaño',
-            subtitle: 'Lado del sprite en píxeles',
+        const sizeRow = new Adw.SpinRow({
+            title: 'Size',
+            subtitle: 'Sprite side length in pixels',
             adjustment: new Gtk.Adjustment({
                 lower: 48, upper: 160, step_increment: 4, page_increment: 16,
             }),
         });
-        gAspecto.add(filaTamano);
+        appearance.add(sizeRow);
 
-        // --- Movimiento ---
-        const gMov = new Adw.PreferencesGroup({title: 'Movimiento'});
-        page.add(gMov);
+        const hatRow = new Adw.ComboRow({
+            title: 'Hat',
+            subtitle: 'Hidden automatically while cooking or asleep',
+            model: Gtk.StringList.new(HAT_LABELS),
+        });
+        appearance.add(hatRow);
 
-        const filaVel = new Adw.SpinRow({
-            title: 'Velocidad del paseo',
-            subtitle: 'Píxeles por segundo',
+        // --- Movement ---
+        const movement = new Adw.PreferencesGroup({title: 'Movement'});
+        page.add(movement);
+
+        const speedRow = new Adw.SpinRow({
+            title: 'Walking speed',
+            subtitle: 'Pixels per second',
             adjustment: new Gtk.Adjustment({
                 lower: 10, upper: 200, step_increment: 5, page_increment: 20,
             }),
         });
-        gMov.add(filaVel);
+        movement.add(speedRow);
 
-        // --- Reacciones ---
-        const gReac = new Adw.PreferencesGroup({title: 'Reacciones'});
-        page.add(gReac);
-
-        const filaApps = new Adw.SwitchRow({
-            title: 'Saltar al abrir o activar apps',
-            subtitle: 'Salta al lanzar/activar una app o abrir una ventana',
+        const followRow = new Adw.SwitchRow({
+            title: 'Follow the cursor',
+            subtitle: 'Walk towards the pointer when it comes near the dock',
         });
-        gReac.add(filaApps);
+        movement.add(followRow);
 
-        const filaSaludo = new Adw.SwitchRow({
-            title: 'Saludar al hacer clic',
-            subtitle: 'Ondea al pulsar sobre la mascota',
+        // --- Reactions ---
+        const reactions = new Adw.PreferencesGroup({title: 'Reactions'});
+        page.add(reactions);
+
+        const appsRow = new Adw.SwitchRow({
+            title: 'React to applications',
+            subtitle: 'Jump when an app opens or gets focus',
         });
-        gReac.add(filaSaludo);
+        reactions.add(appsRow);
 
-        const filaSeguir = new Adw.SwitchRow({
-            title: 'Seguir el cursor',
-            subtitle: 'Camina hacia el ratón cuando lo acercas al dock',
+        const clickRow = new Adw.SwitchRow({
+            title: 'Wave when clicked',
+            subtitle: 'Hearts when petted, dizzy when shaken around',
         });
-        gReac.add(filaSeguir);
+        reactions.add(clickRow);
 
-        const filaDormir = new Adw.SwitchRow({
-            title: 'Dormirse tras inactividad',
-            subtitle: 'Se echa una siesta (zzz) si pasa un rato sin actividad',
+        const sleepRow = new Adw.SwitchRow({
+            title: 'Sleep when idle',
+            subtitle: 'Stretch and nap after a few seconds',
         });
-        gReac.add(filaDormir);
+        reactions.add(sleepRow);
 
-        const filaCocina = new Adw.SwitchRow({
-            title: 'Modo cocinando',
-            subtitle: 'Gorro de chef y vapor con Claude/VSCode abiertos',
+        const musicRow = new Adw.SwitchRow({
+            title: 'Music notes',
+            subtitle: 'Colourful notes while a media player is playing',
         });
-        gReac.add(filaCocina);
+        reactions.add(musicRow);
 
-        const filaMusica = new Adw.SwitchRow({
-            title: 'Bailar con música',
-            subtitle: 'Baila cuando suena un reproductor',
+        const systemRow = new Adw.SwitchRow({
+            title: 'System reactions',
+            subtitle: 'Sweat on low battery or heavy CPU load',
         });
-        gReac.add(filaMusica);
+        reactions.add(systemRow);
 
-        const filaSistema = new Adw.SwitchRow({
-            title: 'Reacciones de sistema',
-            subtitle: 'Suda si la batería está baja o la CPU muy cargada',
+        // --- Personality ---
+        const personality = new Adw.PreferencesGroup({title: 'Personality'});
+        page.add(personality);
+
+        const speechRow = new Adw.SwitchRow({
+            title: 'Speech bubbles',
+            subtitle: 'Short messages above the pet',
         });
-        gReac.add(filaSistema);
+        personality.add(speechRow);
 
-        // --- Sombreros ---
-        const gHat = new Adw.PreferencesGroup({
-            title: 'Sombrero',
-            description: 'Adorno de cabeza (se oculta al cocinar o dormir)',
+        const routineRow = new Adw.SwitchRow({
+            title: 'Daily routine',
+            subtitle: 'Morning coffee and greetings, sleepier at night',
         });
-        page.add(gHat);
+        personality.add(routineRow);
 
-        const HATS = ['ninguno', 'navidad', 'halloween', 'cumple'];
-        const HATS_LABEL = ['Ninguno', 'Navidad 🎄', 'Halloween 🎃', 'Cumpleaños 🎂'];
-        const filaHat = new Adw.ComboRow({
-            title: 'Sombrero',
-            model: Gtk.StringList.new(HATS_LABEL),
+        // --- Claude Code ---
+        const claude = new Adw.PreferencesGroup({
+            title: 'Claude Code',
+            description: 'Cooks while Claude works, celebrates when a task ends. ' +
+                'Reads ~/.config/claude-pet/state written by the hooks in hooks/.',
         });
-        gHat.add(filaHat);
-        filaHat.selected = Math.max(0, HATS.indexOf(settings.get_string('sombrero')));
-        filaHat.connect('notify::selected',
-            () => settings.set_string('sombrero', HATS[filaHat.selected]));
-        settings.connect('changed::sombrero', () => {
-            const i = HATS.indexOf(settings.get_string('sombrero'));
-            if (i >= 0 && i !== filaHat.selected)
-                filaHat.selected = i;
+        page.add(claude);
+
+        const cookingRow = new Adw.SwitchRow({
+            title: 'Cooking mode',
+            subtitle: 'Chef hat, pan and steam while Claude or VS Code run',
+        });
+        claude.add(cookingRow);
+
+        const hooksRow = new Adw.SwitchRow({
+            title: 'React to Claude Code hooks',
+            subtitle: 'Celebrate on success, look worried on errors',
+        });
+        claude.add(hooksRow);
+
+        // --- Bindings ---
+        sizeRow.set_value(settings.get_int('size'));
+        speedRow.set_value(settings.get_int('speed'));
+        sizeRow.connect('notify::value',
+            () => settings.set_int('size', sizeRow.get_value()));
+        speedRow.connect('notify::value',
+            () => settings.set_int('speed', speedRow.get_value()));
+        settings.connect('changed::size',
+            () => sizeRow.set_value(settings.get_int('size')));
+        settings.connect('changed::speed',
+            () => speedRow.set_value(settings.get_int('speed')));
+
+        hatRow.selected = Math.max(0, HATS.indexOf(settings.get_string('hat')));
+        hatRow.connect('notify::selected',
+            () => settings.set_string('hat', HATS[hatRow.selected]));
+        settings.connect('changed::hat', () => {
+            const i = HATS.indexOf(settings.get_string('hat'));
+            if (i >= 0 && i !== hatRow.selected)
+                hatRow.selected = i;
         });
 
-        // --- Enlaces con GSettings ---
-        // Los SpinRow (valor double) los enlazamos manualmente con las claves int.
-        filaTamano.set_value(settings.get_int('tamano'));
-        filaVel.set_value(settings.get_int('velocidad'));
-        filaTamano.connect('notify::value',
-            () => settings.set_int('tamano', filaTamano.get_value()));
-        filaVel.connect('notify::value',
-            () => settings.set_int('velocidad', filaVel.get_value()));
-        settings.connect('changed::tamano',
-            () => filaTamano.set_value(settings.get_int('tamano')));
-        settings.connect('changed::velocidad',
-            () => filaVel.set_value(settings.get_int('velocidad')));
-
-        settings.bind('reaccion-apps', filaApps, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        settings.bind('saludo-click', filaSaludo, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        settings.bind('seguir-cursor', filaSeguir, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        settings.bind('dormir', filaDormir, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        settings.bind('cocina', filaCocina, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        settings.bind('musica', filaMusica, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        settings.bind('sistema', filaSistema, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
+        for (const [key, row] of [
+            ['react-apps', appsRow], ['wave-on-click', clickRow],
+            ['follow-cursor', followRow], ['sleep', sleepRow],
+            ['music', musicRow], ['system-reactions', systemRow],
+            ['speech', speechRow], ['daily-routine', routineRow],
+            ['cooking', cookingRow], ['claude-hooks', hooksRow],
+        ]) {
+            settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
+        }
     }
 }
