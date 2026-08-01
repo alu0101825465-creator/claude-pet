@@ -83,7 +83,14 @@ const TODOS_FRAMES = [
     'idle_0', 'idle_1', 'walk_0', 'walk_1', 'walk_2', 'walk_3', 'jump_0', 'jump_1',
     'sleep_0', 'note', 'lens', 'bubble',
     'hat_navidad', 'hat_halloween', 'hat_cumple', 'heart', 'sweat', 'star',
+    'note_0', 'note_1', 'note_2', 'note_3', 'note_4', 'note_5',
 ];
+// Goteo de notas mientras suena música (sin salto): colores rotando.
+const NOTAS_COLORES = 6;
+const NOTAS_POOL = 3;            // notas simultáneas en vuelo
+const NOTA_CADA = 12;            // sondeos entre notas (~1,4 s)
+const NOTA_DURACION = 1500;      // ms que tarda en subir y desvanecerse
+const RATIO_NOTA = 40 / 96;
 
 export default class ClaudePetExtension extends Extension {
     enable() {
@@ -139,6 +146,10 @@ export default class ClaudePetExtension extends Extension {
         this._sombrero = this._nuevoOverlay('hat_navidad');   // gicon según ajuste
         this._gotita = this._nuevoOverlay('sweat');
         this._particulas = [0, 1, 2].map(() => this._nuevoOverlay('heart'));
+        this._notas = Array.from({length: NOTAS_POOL},
+            () => this._nuevoOverlay('note_0'));
+        this._notaIdx = 0;
+        this._notaColor = 0;
         this._sombreroVisible = false;
         this._musicaSonando = false;
         this._musicaTick = 0;
@@ -228,6 +239,8 @@ export default class ClaudePetExtension extends Extension {
             this._gotita.icon_size = Math.round(this._tamano * RATIO_GOTITA);
         for (const p of (this._particulas ?? []))
             p.icon_size = Math.round(this._tamano * RATIO_PARTICULA);
+        for (const n of (this._notas ?? []))
+            n.icon_size = Math.round(this._tamano * RATIO_NOTA);
         if (!this._dormirOn && this._modo === 'durmiendo')
             this._despertar();
         this._reposicionar();
@@ -339,7 +352,8 @@ export default class ClaudePetExtension extends Extension {
         // El CUERPO primero (queda el más bajo del grupo) y luego los overlays
         // encima; así el gorro/luna/z/accesorios se ven sobre el cuerpo.
         for (const a of [this._pet, this._zzz, this._luna, this._vapor,
-            this._chef, this._sarten, this._accesorio]) {
+            this._chef, this._sarten, this._accesorio, this._sombrero,
+            ...(this._notas ?? [])]) {
             const p = a?.get_parent?.();
             if (p)
                 p.set_child_above_sibling(a, null);
@@ -392,9 +406,37 @@ export default class ClaudePetExtension extends Extension {
             this._consultarMpris();
         if (this._musicaSonando) {
             this._baileTick++;
-            if (this._baileTick % 40 === 0)               // baila cada ~5 s
-                this._reaccionMusica();
+            if (this._baileTick % NOTA_CADA === 0)
+                this._soltarNota();
         }
+    }
+
+    // Nota musical que sube y se desvanece. Sin salto: solo el goteo, rotando
+    // color en cada nota y alternando actores para que puedan solaparse.
+    _soltarNota() {
+        if (!this._notas || !this._pet || this._oculto)
+            return;
+        const n = this._notas[this._notaIdx];
+        this._notaIdx = (this._notaIdx + 1) % this._notas.length;
+        n.gicon = this._iconos[`note_${this._notaColor}`];
+        this._notaColor = (this._notaColor + 1) % NOTAS_COLORES;
+
+        // Punto de salida ligeramente variable, junto a la cabeza.
+        const jitter = (Math.random() - 0.5) * this._tamano * 0.28;
+        n.remove_all_transitions();
+        this._centrar(n,
+            this._pet.x + this._tamano * 0.70 + jitter,
+            this._pet.y + this._tamano * 0.02);
+        n.translation_x = 0;
+        n.translation_y = 0;
+        n.opacity = 255;
+        n.ease({
+            translation_x: (Math.random() - 0.3) * this._tamano * 0.3,
+            translation_y: -this._tamano * (0.55 + Math.random() * 0.25),
+            opacity: 0,
+            duration: NOTA_DURACION,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
     }
 
     _consultarMpris() {
@@ -451,17 +493,8 @@ export default class ClaudePetExtension extends Extension {
         this._musicaSonando = sonando;
         if (sonando && !antes) {
             this._baileTick = 0;
-            this._reaccionMusica();
+            this._soltarNota();          // primera nota nada más arrancar
         }
-    }
-
-    _reaccionMusica() {
-        if (!this._pet || this._oculto ||
-            this._modo !== 'paseo' && this._modo !== 'idle')
-            return;
-        this._registrarActividad();
-        this._flotarAccesorio('note');
-        this._bailar();
     }
 
     // --- Reacciones de sistema (batería / CPU) ---
@@ -1189,7 +1222,7 @@ export default class ClaudePetExtension extends Extension {
         if (oculto) {
             this._pararVapor();
             for (const a of [this._zzz, this._luna, this._chef, this._sarten,
-                this._sombrero, this._gotita]) {
+                this._sombrero, this._gotita, ...(this._notas ?? [])]) {
                 if (a) {
                     a.remove_all_transitions();
                     a.opacity = 0;
@@ -1226,12 +1259,13 @@ export default class ClaudePetExtension extends Extension {
         Shell.WindowTracker.get_default().disconnectObject(this);
         global.display.disconnectObject(this);
         this._settings?.disconnectObject(this);
-        for (const p of (this._particulas ?? [])) {
+        for (const p of [...(this._particulas ?? []), ...(this._notas ?? [])]) {
             p.remove_all_transitions();
             Main.layoutManager.removeChrome(p);
             p.destroy();
         }
         this._particulas = null;
+        this._notas = null;
         for (const a of ['_zzz', '_luna', '_vapor', '_chef', '_sarten',
             '_accesorio', '_sombrero', '_gotita', '_pet']) {
             if (this[a]) {

@@ -360,6 +360,16 @@ COL = {
     'G': (95, 145, 60, 255),         # verde rabito
 }
 
+# Colores por los que van rotando las notas musicales.
+NOTA_COLORES = [
+    (232, 74, 95, 255),     # rojo
+    (243, 146, 55, 255),    # naranja
+    (246, 208, 68, 255),    # amarillo
+    (106, 200, 110, 255),   # verde
+    (86, 165, 240, 255),    # azul
+    (178, 120, 232, 255),   # morado
+]
+
 
 def poner_gorro(sleep96, block):
     """Estampa el gorrito pixel sobre la cabeza del sprite acostado (tam×tam)."""
@@ -445,6 +455,9 @@ def main():
     png_de_grid(GRID_CHEF, COL, block, 'assets/chef.png')
     png_de_grid(GRID_SARTEN, COL, block_pan, 'assets/pan.png')
     png_de_grid(GRID_NOTE, COL, block, 'assets/note.png')
+    # Notas de colores para el goteo continuo mientras suena música.
+    for i, c in enumerate(NOTA_COLORES):
+        png_de_grid(GRID_NOTE, {**COL, 'M': c}, block, f'assets/note_{i}.png')
     png_de_grid(GRID_LENS, COL, block, 'assets/lens.png')
     png_de_grid(GRID_BUBBLE, COL, block, 'assets/bubble.png')
     # Sombreros: anclados abajo (se posicionan por su borde inferior).
