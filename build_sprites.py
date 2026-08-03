@@ -345,6 +345,13 @@ GRID_Z = [
     '.ZZ..',
     'ZZZZZ',
 ]
+GRID_SHADOW = [
+    '..VVVVVVVV..',
+    '.VVVVVVVVVV.',
+    'VVVVVVVVVVVV',
+    '.VVVVVVVVVV.',
+    '..VVVVVVVV..',
+]
 GRID_COFFEE = [
     '..UU....',
     'TTTTTTT.',
@@ -376,6 +383,7 @@ COL = {
     'T': (238, 238, 242, 255),   # coffee mug
     'E': (200, 200, 206, 255),   # mug handle
     'U': (206, 206, 212, 255),   # steam wisp
+    'V': (0, 0, 0, 90),          # ground shadow (semi-transparent)
 }
 
 NOTE_COLOURS = [
@@ -467,7 +475,7 @@ def main():
         (GRID_NOTE, 'note', block), (GRID_LENS, 'lens', block),
         (GRID_BUBBLE, 'bubble', block), (GRID_HEART, 'heart', block),
         (GRID_SWEAT, 'sweat', block), (GRID_STAR, 'star', block_small),
-        (GRID_COFFEE, 'coffee', block),
+        (GRID_COFFEE, 'coffee', block), (GRID_SHADOW, 'shadow', block),
     ]:
         png_from_grid(grid, COL, blk, f'assets/{name}.png')
 

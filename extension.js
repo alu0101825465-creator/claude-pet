@@ -84,8 +84,15 @@ const FRAME_HOLD = {idle: 16, walk: 4};
 const ALL_ICONS = [
     'idle_0', 'idle_1', 'walk_0', 'walk_1', 'walk_2', 'walk_3', 'jump_0', 'jump_1',
     'sleep_0', 'note', 'lens', 'bubble', 'heart', 'sweat', 'star', 'coffee',
-    'hat_christmas', 'hat_halloween', 'hat_birthday',
+    'hat_christmas', 'hat_halloween', 'hat_birthday', 'shadow',
     'note_0', 'note_1', 'note_2', 'note_3', 'note_4', 'note_5',
+];
+const SHADOW_RATIO = 0.62;        // shadow width relative to the pet
+const IDLE_ACTION_CHANCE = 0.45;  // odds of a little idle act instead of a plain turn
+const FLIP_MS = 520;              // somersault duration
+// Desktop ids tried when opening the Claude app on right-click.
+const CLAUDE_APP_IDS = [
+    'com.anthropic.Claude.desktop', 'claude.desktop', 'Claude.desktop',
 ];
 const NOTE_COLOURS = 6;
 const NOTE_POOL = 3;
@@ -166,6 +173,9 @@ export default class ClaudePetExtension extends Extension {
         for (const n of ALL_ICONS)
             this._icons[n] = Gio.icon_new_for_string(`${this.path}/assets/${n}.png`);
 
+        // Ground shadow — created BEFORE the pet so it stays underneath it.
+        this._shadow = this._overlay('shadow');
+
         // Main actor.
         this._pet = new St.Icon({
             gicon: this._icons['idle_0'],
@@ -175,7 +185,7 @@ export default class ClaudePetExtension extends Extension {
             track_hover: false,
         });
         this._pet.set_pivot_point(0.5, 1.0);
-        this._pet.connect('button-press-event', () => this._onPress());
+        this._pet.connect('button-press-event', (_a, ev) => this._onPress(ev));
         Main.layoutManager.addChrome(this._pet, {
             affectsStruts: false, trackFullscreen: true,
         });
@@ -215,6 +225,8 @@ export default class ClaudePetExtension extends Extension {
                 if (win?.get_window_type?.() === Meta.WindowType.NORMAL)
                     this._react();
             }, this);
+        global.workspace_manager.connectObject(
+            'active-workspace-changed', () => this._somersault(), this);
         try {
             Main.messageTray.connectObject(
                 'source-added', () => this._peek(), this);
@@ -282,6 +294,8 @@ export default class ClaudePetExtension extends Extension {
         }
         if (this._hat)
             this._hat.icon_size = Math.round(this._size * HAT_RATIO);
+        if (this._shadow)
+            this._shadow.icon_size = Math.round(this._size * SHADOW_RATIO);
         if (this._sweat)
             this._sweat.icon_size = Math.round(this._size * SWEAT_RATIO);
         for (const p of (this._particles ?? []))
@@ -492,7 +506,8 @@ export default class ClaudePetExtension extends Extension {
 
     _raise() {
         // Body first (lowest of the group), overlays on top of it.
-        for (const a of [this._pet, this._zzz, this._moon, this._steam, this._chef,
+        for (const a of [this._shadow, this._pet, this._zzz, this._moon,
+            this._steam, this._chef,
             this._pan, this._prop, this._hat, this._sweat, this._coffee,
             this._bubble, ...(this._notes ?? []), ...(this._particles ?? [])]) {
             const p = a?.get_parent?.();
@@ -538,9 +553,7 @@ export default class ClaudePetExtension extends Extension {
             this._pet.translation_y !== 0)
             this._pet.translation_y = 0;
 
-        if (this._mode === 'react' || this._mode === 'wave' ||
-            this._mode === 'drag' || this._mode === 'stretch' ||
-            this._mode === 'dizzy')
+        if (['react', 'wave', 'drag', 'stretch', 'dizzy', 'act'].includes(this._mode))
             return;   // Clutter or the pointer drives these
 
         const now = GLib.get_monotonic_time();
@@ -618,10 +631,123 @@ export default class ClaudePetExtension extends Extension {
     }
 
     _turnAround() {
+        // Sometimes do a little something instead of just turning on the spot.
+        if (Math.random() < IDLE_ACTION_CHANCE) {
+            this._idleAction();
+            return;
+        }
         this._mode = 'idle';
         this._frame = 0;
         this._pause = Math.round(TURN_PAUSE_MS / Math.max(1, this._tickRate));
         this._pet.gicon = this._icons[FRAMES.idle[0]];
+    }
+
+    // ---------- Idle repertoire ----------
+
+    _idleAction() {
+        const actions = [this._sit, this._lookAround, this._scratch,
+            this._somersault];
+        actions[Math.floor(Math.random() * actions.length)].call(this);
+    }
+
+    // Runs an "act": blocks the walk loop and turns around when finished.
+    _act(run) {
+        if (!this._pet || this._hidden ||
+            ['react', 'wave', 'drag', 'stretch', 'dizzy', 'act'].includes(this._mode))
+            return;
+        this._mode = 'act';
+        this._pet.remove_all_transitions();
+        run(() => {
+            if (!this._pet || this._mode !== 'act')
+                return;
+            this._pet.rotation_angle_z = 0;
+            this._pet.set_scale(this._dir, 1);
+            this._dir *= -1;
+            this._mode = 'walk';
+            this._frame = 0;
+        });
+    }
+
+    _sit() {
+        this._act(done => {
+            this._pet.gicon = this._icons['idle_0'];
+            this._pet.ease({scale_y: 0.82, duration: 260,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                onComplete: () => {
+                    if (!this._pet)
+                        return;
+                    this._pet.gicon = this._icons['idle_1'];   // eyes shut, resting
+                    this._pet.ease({scale_y: 1, duration: 320, delay: 900,
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                        onComplete: done});
+                }});
+        });
+    }
+
+    _lookAround() {
+        this._act(done => {
+            this._pet.gicon = this._icons['idle_0'];
+            const facings = [-this._dir, this._dir, -this._dir, this._dir];
+            let i = 0;
+            const step = () => {
+                if (!this._pet)
+                    return;
+                if (i >= facings.length) {
+                    done();
+                    return;
+                }
+                this._pet.scale_x = facings[i++];
+                this._pet.ease({scale_y: 1, duration: 300, onComplete: step});
+            };
+            step();
+        });
+    }
+
+    _scratch() {
+        this._act(done => {
+            this._pet.gicon = this._icons['jump_0'];   // a paw up
+            const wiggle = [6, -6, 6, -6, 0];
+            let i = 0;
+            const step = () => {
+                if (!this._pet)
+                    return;
+                if (i >= wiggle.length) {
+                    done();
+                    return;
+                }
+                this._pet.ease({rotation_angle_z: wiggle[i++], duration: 110,
+                    mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
+                    onComplete: step});
+            };
+            step();
+        });
+    }
+
+    // A full somersault: hop up, spin once around the middle, land.
+    _somersault() {
+        this._act(done => {
+            this._pet.gicon = this._icons['jump_0'];
+            this._pet.set_pivot_point(0.5, 0.5);       // spin around the centre
+            this._pet.rotation_angle_z = 0;
+            const spin = 360 * (this._pet.scale_x < 0 ? -1 : 1);
+            this._pet.ease({translation_y: -this._size * 0.42, duration: FLIP_MS / 2,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                onComplete: () => {
+                    if (!this._pet)
+                        return;
+                    this._pet.ease({translation_y: 0, duration: FLIP_MS / 2,
+                        mode: Clutter.AnimationMode.EASE_IN_QUAD});
+                }});
+            this._pet.ease({rotation_angle_z: spin, duration: FLIP_MS,
+                mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
+                onComplete: () => {
+                    if (this._pet) {
+                        this._pet.rotation_angle_z = 0;
+                        this._pet.set_pivot_point(0.5, 1.0);   // back to the feet
+                    }
+                    done();
+                }});
+        });
     }
 
     _cursorTarget() {
@@ -673,7 +799,27 @@ export default class ClaudePetExtension extends Extension {
             this._pet.rotation_angle_z * Math.sign(this._pet.scale_x || 1);
     }
 
+    // The shadow stays on the ground while the pet hops: the higher it is, the
+    // smaller and fainter the shadow gets.
+    _syncShadow() {
+        if (!this._shadow || !this._pet)
+            return;
+        if (this._hidden || this._mode === 'drag') {
+            this._shadow.opacity = 0;
+            return;
+        }
+        const lift = Math.max(0, -(this._pet.translation_y || 0));
+        const t = Math.min(1, lift / Math.max(1, this._size * 0.35));
+        const ground = this._perchY != null
+            ? this._perchY + this._size - this._footPad
+            : this._pet.y + this._size - this._footPad;
+        this._centre(this._shadow, this._pet.x + this._size * 0.5, ground);
+        this._shadow.set_scale(1 - 0.35 * t, 1 - 0.35 * t);
+        this._shadow.opacity = Math.round(200 * (1 - 0.55 * t));
+    }
+
     _syncWorn() {
+        this._syncShadow();
         if (this._hidden)
             return;
         if (this._cooking) {
@@ -763,6 +909,49 @@ export default class ClaudePetExtension extends Extension {
         }
     }
 
+    // Right-click: bring up the Claude app (focuses it if it is already running)
+    // and start cooking straight away — an explicit "I am about to work" signal,
+    // far more reliable than sniffing for a running agent.
+    _openClaude() {
+        this._wake();
+        const app = this._claudeApp();
+        if (!app) {
+            this._say('Claude is not installed?');
+            return;
+        }
+        try {
+            app.activate();          // launches it, or focuses the open window
+        } catch (_e) {}
+        this._startCooking();
+        this._say(this._pick(LINES.busy));
+    }
+
+    _claudeApp() {
+        const sys = Shell.AppSystem.get_default();
+        for (const id of CLAUDE_APP_IDS) {
+            const app = sys.lookup_app(id);
+            if (app)
+                return app;
+        }
+        try {   // fall back to any installed app that looks like Claude
+            for (const info of Gio.AppInfo.get_all()) {
+                const id = (info.get_id() || '').toLowerCase();
+                if (id.includes('claude') && !id.includes('url-handler')) {
+                    const app = sys.lookup_app(info.get_id());
+                    if (app)
+                        return app;
+                }
+            }
+        } catch (_e) {}
+        return null;
+    }
+
+    // Cook right now; the app check takes over once Claude is actually up.
+    _startCooking() {
+        this._cookUntil = GLib.get_monotonic_time() + 60000000;   // 60 s grace
+        this._checkCooking();
+    }
+
     _cookingApp() {
         try {
             for (const app of Shell.AppSystem.get_default().get_running()) {
@@ -775,8 +964,10 @@ export default class ClaudePetExtension extends Extension {
     }
 
     _checkCooking() {
+        const forced = this._cookUntil &&
+            GLib.get_monotonic_time() < this._cookUntil;
         const active = this._cookingOn && !this._hidden &&
-            (this._claudeState === 'working' || this._cookingApp());
+            (forced || this._claudeState === 'working' || this._cookingApp());
         if (active !== this._cooking) {
             this._cooking = active;
             for (const a of [this._chef, this._pan])
@@ -1038,7 +1229,7 @@ export default class ClaudePetExtension extends Extension {
 
     _canReact() {
         if (!this._pet || this._hidden || !this._reactApps ||
-            ['react', 'wave', 'drag', 'stretch', 'dizzy'].includes(this._mode))
+            ['react', 'wave', 'drag', 'stretch', 'dizzy', 'act'].includes(this._mode))
             return false;
         const now = GLib.get_monotonic_time();
         if (now - this._lastReact < REACT_COOLDOWN_US)
@@ -1313,9 +1504,13 @@ export default class ClaudePetExtension extends Extension {
 
     // ---------- Click and drag ----------
 
-    _onPress() {
+    _onPress(event) {
         if (this._hidden)
             return Clutter.EVENT_PROPAGATE;
+        if (event?.get_button?.() === Clutter.BUTTON_SECONDARY) {
+            this._openClaude();
+            return Clutter.EVENT_STOP;
+        }
         const [px, py] = global.get_pointer();
         this._pressAt = [px, py];
         this._pressOffset = [px - this._pet.x, py - this._pet.y];
@@ -1406,6 +1601,7 @@ export default class ClaudePetExtension extends Extension {
                 this._frame = 0;
                 this._pet.rotation_angle_z = 0;
                 this._pet.scale_y = 1;
+                this._pet.set_pivot_point(0.5, 1.0);
             }
             for (const a of [this._zzz, this._moon, this._chef, this._pan,
                 this._hat, this._sweat, this._coffee, this._steam, this._bubble,
@@ -1454,6 +1650,7 @@ export default class ClaudePetExtension extends Extension {
         Shell.AppSystem.get_default().disconnectObject(this);
         Shell.WindowTracker.get_default().disconnectObject(this);
         global.display.disconnectObject(this);
+        global.workspace_manager.disconnectObject(this);
         this._settings?.disconnectObject(this);
 
         for (const a of [...(this._particles ?? []), ...(this._notes ?? [])]) {
@@ -1464,7 +1661,7 @@ export default class ClaudePetExtension extends Extension {
         this._particles = null;
         this._notes = null;
         for (const key of ['_zzz', '_moon', '_steam', '_chef', '_pan', '_prop',
-            '_hat', '_sweat', '_coffee', '_bubble', '_pet']) {
+            '_hat', '_sweat', '_coffee', '_bubble', '_shadow', '_pet']) {
             if (this[key]) {
                 this[key].remove_all_transitions();
                 Main.layoutManager.removeChrome(this[key]);

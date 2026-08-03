@@ -11,6 +11,12 @@ around, reacts to what you do, and naps when you leave it alone.
 ## What it does
 
 - **Walks** along the dock, moving its little legs, and turns around at the ends.
+  Now and then it stops to **sit down, look around, scratch itself or do a
+  somersault**, and it casts a little **shadow** that shrinks as it hops.
+- **Right-click opens Claude** (focusing the window if it is already running) and
+  immediately switches the pet into cooking mode — an explicit "I am about to
+  work" signal.
+- **Somersaults** when you switch workspace.
 - **Follows the dock's auto-hide**: slides away when the dock hides, comes back
   with it. Works with Dash2Dock Animated, Dash to Dock, the Ubuntu dock, or no
   dock at all.
@@ -20,8 +26,8 @@ around, reacts to what you do, and naps when you leave it alone.
   VS Code are running — or driven by real **Claude Code hooks** (see `hooks/`).
 - **Sleeps** when idle: stretches, lies down with a sleep cap, moon and z's.
   Falls asleep sooner at night.
-- **Interactive**: click to wave, pet it (a few clicks) for hearts, **drag it**
-  anywhere and watch it bounce back.
+- **Interactive**: left-click to wave, pet it (a few clicks) for hearts,
+  right-click to summon Claude, **drag it** anywhere and watch it bounce back.
 - **Music notes** 🎶 in rotating colours while any player is actually playing.
 - **System reactions** 🔋: breaks a sweat when the battery is low or the CPU is
   pegged.
