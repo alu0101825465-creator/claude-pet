@@ -67,8 +67,11 @@ const NOTE_MS = 1500;
 // --- Overlay sizes, as a fraction of the pet size ---
 const OVERLAY_RATIO = {
     zeta: 15 / 96, moon: 48 / 96, steam: 30 / 96, chef: 42 / 96,
-    pan: 48 / 96, coffee: 48 / 96,
+    pan: 48 / 96, coffee: 32 / 96,
 };
+// Where the mug is held: out to the side, clear of the body.
+const COFFEE_X = 1.02;
+const COFFEE_Y = 0.42;
 const HAT_RATIO = 0.68;
 const SWEAT_RATIO = 0.28;
 const PARTICLE_RATIO = 0.28;
@@ -818,7 +821,7 @@ export default class ClaudePetExtension extends Extension {
             this._placeHat(this._hat);
         }
         if (this._coffeeShown && this._coffee)
-            this._place(this._coffee, 0.82, 0.42);
+            this._place(this._coffee, COFFEE_X, COFFEE_Y);
     }
 
     _currentHat() {
@@ -969,12 +972,12 @@ export default class ClaudePetExtension extends Extension {
     }
 
     // Shared by the frying pan and the coffee mug; they never show at once.
-    _puffSteam(yFrac = 0.30) {
+    _puffSteam(xFrac = 0.82, yFrac = 0.30) {
         if (!this._steam || !this._pet)
             return;
         this._steam.remove_all_transitions();
         this._centre(this._steam,
-            this._pet.x + this._size * 0.82, this._pet.y + this._size * yFrac);
+            this._pet.x + this._size * xFrac, this._pet.y + this._size * yFrac);
         this._steam.translation_y = 0;
         this._steam.opacity = 200;
         this._steam.ease({translation_y: -30, opacity: 0, duration: 1300,
@@ -1190,7 +1193,7 @@ export default class ClaudePetExtension extends Extension {
             return;
         this._coffeeSteam = (this._coffeeSteam ?? 0) + 1;
         if (this._coffeeSteam % STEAM_EVERY === 0)
-            this._puffSteam(0.26);   // steam rising off the mug
+            this._puffSteam(COFFEE_X, COFFEE_Y - 0.20);   // rising off the mug
     }
 
     // ---------- Reactions ----------
