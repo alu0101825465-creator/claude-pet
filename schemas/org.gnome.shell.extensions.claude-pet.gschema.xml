@@ -47,17 +47,12 @@
     <key name="system-reactions" type="b">
       <default>true</default>
       <summary>System reactions</summary>
-      <description>Sweat when the battery is low or the CPU is under load.</description>
-    </key>
-    <key name="speech" type="b">
-      <default>true</default>
-      <summary>Speech bubbles</summary>
-      <description>Show short messages in a speech bubble.</description>
+      <description>Sweat when the battery is low or the CPU is under load, and hold a steaming coffee in the performance power profile.</description>
     </key>
     <key name="daily-routine" type="b">
       <default>true</default>
       <summary>Daily routine</summary>
-      <description>Morning coffee, greetings, and sleepier behaviour at night.</description>
+      <description>Sleepier behaviour at night and the automatic seasonal hat.</description>
     </key>
     <key name="claude-hooks" type="b">
       <default>true</default>

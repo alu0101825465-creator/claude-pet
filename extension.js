@@ -9,8 +9,10 @@
 //   - Cooking mode (chef hat, pan, steam) while Claude or VS Code are running,
 //     or while a Claude Code hook writes ~/.config/claude-pet/state.
 //   - Sleeps when idle: stretches, lies down with a sleep cap, moon and z's.
-//   - Interactive: click to wave, pet it for hearts, drag it around.
-//   - Speech bubbles and a daily routine (morning coffee, sleepier at night).
+//   - Interactive: left-click to wave, pet it for hearts, drag it around,
+//     right-click to summon Claude.
+//   - Sips a steaming coffee while the laptop runs in the performance power
+//     profile (never at the same time as the chef hat).
 //
 // Design notes
 //   - Wayland has no "always on top"; floating is done by registering the actors
@@ -61,10 +63,6 @@ const DROP_MS = 480;
 const STEAM_EVERY = 8;
 const NOTE_EVERY = 12;
 const NOTE_MS = 1500;
-const BUBBLE_MS = 3600;
-const GREET_DELAY_US = 8000000;      // let the desktop settle before greeting
-const COFFEE_EVERY_US = 720000000;   // a fresh coffee every 12 min in the morning
-const CHATTER_EVERY_US = 360000000;  // the odd idle remark, every ~6 min
 
 // --- Overlay sizes, as a fraction of the pet size ---
 const OVERLAY_RATIO = {
@@ -125,20 +123,12 @@ const DOCK_EXTENSIONS = [
     'ubuntu-dock@ubuntu.com',
 ];
 
-// Speech bubble lines.
-const LINES = {
-    morning: ['Good morning!', 'Coffee time ☕', 'Rise and shine!'],
-    evening: ['Good evening!', 'Still going?', 'Long day, huh?'],
-    night: ['It is late…', 'Time for bed?', 'Zzz soon…'],
-    petted: ['Hehe!', 'That tickles!', '<3'],
-    battery: ['Battery is low!', 'Plug me in… I mean, you!'],
-    busy: ['Busy busy!', 'Cooking something…'],
-    done: ['All done!', 'Task complete!', 'Nailed it!'],
-    error: ['Uh oh…', 'Something broke!', 'That did not work.'],
-    idle: ['Nice dock you have here.', 'Just stretching my legs.',
-        'What are we building?', 'Beep boop.', 'I like it up here.',
-        'Right-click me to summon Claude!'],
-};
+// Power profiles daemon, new name first with the old one as a fallback.
+const POWER_IFACES = [
+    {name: 'org.freedesktop.UPower.PowerProfiles',
+     path: '/org/freedesktop/UPower/PowerProfiles'},
+    {name: 'net.hadess.PowerProfiles', path: '/net/hadess/PowerProfiles'},
+];
 
 export default class ClaudePetExtension extends Extension {
     enable() {
@@ -169,10 +159,9 @@ export default class ClaudePetExtension extends Extension {
         this._lastClick = 0;
         this._noteIndex = 0;
         this._noteColour = 0;
-        this._greetedOn = null;
-        this._startedAt = GLib.get_monotonic_time();
-        this._lastCoffee = 0;
-        this._lastChatter = 0;
+        this._powerProfile = '';
+        this._coffeeShown = false;
+        this._coffeeSteam = 0;
         this._tickRate = 0;
         this._pollRate = 0;
         this._claudeState = '';
@@ -215,7 +204,6 @@ export default class ClaudePetExtension extends Extension {
         this._coffee = this._overlay('coffee');
         this._particles = [0, 1, 2].map(() => this._overlay('heart'));
         this._notes = Array.from({length: NOTE_POOL}, () => this._overlay('note_0'));
-        this._bubble = this._speechBubble();
 
         // World signals.
         Main.layoutManager.connectObject(
@@ -246,6 +234,7 @@ export default class ClaudePetExtension extends Extension {
         } catch (_e) {}
 
         this._watchClaudeState();
+        this._watchPowerProfile();
 
         this._readSettings();
         this._setPollRate(POLL_MS);
@@ -266,20 +255,6 @@ export default class ClaudePetExtension extends Extension {
         return ic;
     }
 
-    _speechBubble() {
-        const label = new St.Label({
-            text: '',
-            style: 'background-color: rgba(22,22,26,0.94); color: #f2f2f4; ' +
-                   'border: 2px solid rgba(255,255,255,0.16); border-radius: 10px; ' +
-                   'padding: 6px 10px; font-size: 12px; font-weight: bold;',
-        });
-        label.opacity = 0;
-        Main.layoutManager.addChrome(label, {
-            affectsStruts: false, trackFullscreen: true,
-        });
-        return label;
-    }
-
     _readSettings() {
         const s = this._settings;
         this._speed = s.get_int('speed');
@@ -291,7 +266,6 @@ export default class ClaudePetExtension extends Extension {
         this._cookingOn = s.get_boolean('cooking');
         this._musicOn = s.get_boolean('music');
         this._systemOn = s.get_boolean('system-reactions');
-        this._speechOn = s.get_boolean('speech');
         this._routineOn = s.get_boolean('daily-routine');
         this._hooksOn = s.get_boolean('claude-hooks');
         this._hatChoice = s.get_string('hat');
@@ -522,7 +496,7 @@ export default class ClaudePetExtension extends Extension {
         for (const a of [this._shadow, this._pet, this._zzz, this._moon,
             this._steam, this._chef,
             this._pan, this._prop, this._hat, this._sweat, this._coffee,
-            this._bubble, ...(this._notes ?? []), ...(this._particles ?? [])]) {
+            ...(this._notes ?? []), ...(this._particles ?? [])]) {
             const p = a?.get_parent?.();
             if (p)
                 p.set_child_above_sibling(a, null);
@@ -543,7 +517,7 @@ export default class ClaudePetExtension extends Extension {
         this._checkHat();
         this._checkMusic();
         this._checkSystem();
-        this._checkRoutine();
+        this._checkCoffee();
         this._tuneTimers();
     }
 
@@ -843,8 +817,8 @@ export default class ClaudePetExtension extends Extension {
         } else if (this._hatShown && this._hat) {
             this._placeHat(this._hat);
         }
-        if (this._bubble && this._bubble.opacity > 0)
-            this._placeBubble();
+        if (this._coffeeShown && this._coffee)
+            this._place(this._coffee, 0.82, 0.42);
     }
 
     _currentHat() {
@@ -912,14 +886,11 @@ export default class ClaudePetExtension extends Extension {
             return;
         if (value === 'done') {
             this._celebrate();
-            this._say(this._pick(LINES.done));
         } else if (value === 'error') {
             this._sweatDrop();
             this._dizzy();
-            this._say(this._pick(LINES.error));
-        } else if (value === 'working' && previous !== 'working') {
-            this._say(this._pick(LINES.busy));
         }
+        // "working" needs nothing here: _checkCooking() picks the state up.
     }
 
     // Right-click: bring up the Claude app (focuses it if it is already running)
@@ -928,15 +899,12 @@ export default class ClaudePetExtension extends Extension {
     _openClaude() {
         this._wake();
         const app = this._claudeApp();
-        if (!app) {
-            this._say('Claude is not installed?');
+        if (!app)
             return;
-        }
         try {
             app.activate();          // launches it, or focuses the open window
         } catch (_e) {}
         this._startCooking();
-        this._say(this._pick(LINES.busy));
     }
 
     _claudeApp() {
@@ -1000,12 +968,13 @@ export default class ClaudePetExtension extends Extension {
             this._puffSteam();
     }
 
-    _puffSteam() {
+    // Shared by the frying pan and the coffee mug; they never show at once.
+    _puffSteam(yFrac = 0.30) {
         if (!this._steam || !this._pet)
             return;
         this._steam.remove_all_transitions();
         this._centre(this._steam,
-            this._pet.x + this._size * 0.82, this._pet.y + this._size * 0.30);
+            this._pet.x + this._size * 0.82, this._pet.y + this._size * yFrac);
         this._steam.translation_y = 0;
         this._steam.opacity = 200;
         this._steam.ease({translation_y: -30, opacity: 0, duration: 1300,
@@ -1121,11 +1090,8 @@ export default class ClaudePetExtension extends Extension {
         if (this._sysTick !== 0)
             return;
         const stress = this._underStress();
-        if (stress) {
+        if (stress)
             this._sweatDrop();
-            if (stress === 'battery')
-                this._say(this._pick(LINES.battery));
-        }
     }
 
     _underStress() {
@@ -1177,90 +1143,54 @@ export default class ClaudePetExtension extends Extension {
         return h >= 23 || h < 6;
     }
 
-    _timeLines(h) {
-        return h < 12 ? LINES.morning : h < 21 ? LINES.evening : LINES.night;
-    }
+    // ---------- Coffee: the performance power profile ----------
 
-    _checkRoutine() {
-        if (!this._routineOn || this._hidden)
-            return;
-        const now = GLib.get_monotonic_time();
-        // Do not greet in the first seconds after login: the desktop is still
-        // settling and nobody would see it.
-        if (now - this._startedAt < GREET_DELAY_US)
-            return;
-
-        const date = new Date();
-        const today = date.toDateString();
-        const h = date.getHours();
-
-        if (this._greetedOn !== today && h >= 6) {
-            this._greetedOn = today;
-            this._say(this._pick(this._timeLines(h)));
-            this._lastChatter = now;
-            // Stagger the first coffee so it does not land on top of the hello.
-            this._lastCoffee = now - COFFEE_EVERY_US + 20000000;
-            return;
-        }
-        // A fresh coffee every so often through the morning, not once a day:
-        // a single 4-second prop is far too easy to miss.
-        if (h >= 7 && h < 12 && now - (this._lastCoffee ?? 0) > COFFEE_EVERY_US) {
-            this._lastCoffee = now;
-            this._showCoffee();
-            return;
-        }
-        if (now - (this._lastChatter ?? 0) > CHATTER_EVERY_US &&
-            ['walk', 'idle'].includes(this._mode)) {
-            this._lastChatter = now;
-            this._say(this._pick(LINES.idle));
+    // Read the active profile once and then follow PropertiesChanged, so this
+    // costs nothing while the profile stays put.
+    _watchPowerProfile() {
+        for (const iface of POWER_IFACES) {
+            try {
+                Gio.DBus.system.call(
+                    iface.name, iface.path, 'org.freedesktop.DBus.Properties',
+                    'Get',
+                    new GLib.Variant('(ss)', [iface.name, 'ActiveProfile']),
+                    new GLib.VariantType('(v)'), Gio.DBusCallFlags.NONE, -1, null,
+                    (bus, res) => {
+                        try {
+                            const [profile] = bus.call_finish(res).recursiveUnpack();
+                            this._powerProfile = profile;
+                            this._powerIface = iface;
+                        } catch (_e) {}
+                    });
+                this._powerWatchId = Gio.DBus.system.signal_subscribe(
+                    null, 'org.freedesktop.DBus.Properties', 'PropertiesChanged',
+                    iface.path, null, Gio.DBusSignalFlags.NONE,
+                    (_c, _s, _o, _i, _sig, params) => {
+                        try {
+                            const [, changed] = params.recursiveUnpack();
+                            if (changed && changed.ActiveProfile !== undefined)
+                                this._powerProfile = changed.ActiveProfile;
+                        } catch (_e) {}
+                    });
+                return;   // the first interface that answers wins
+            } catch (_e) {}
         }
     }
 
-    _showCoffee() {
-        if (!this._coffee || !this._pet)
+    // The mug shows while the laptop runs in performance mode — but never at the
+    // same time as the chef hat, so the two never fight over the pet's hand.
+    _checkCoffee() {
+        const show = this._systemOn && !this._cooking && !this._hidden &&
+            this._powerProfile === 'performance';
+        if (show !== this._coffeeShown) {
+            this._coffeeShown = show;
+            this._fade(this._coffee, show ? 255 : 0, 300);
+        }
+        if (!show)
             return;
-        this._coffee.remove_all_transitions();
-        this._centre(this._coffee,
-            this._pet.x + this._size * 0.82, this._pet.y + this._size * 0.42);
-        this._coffee.opacity = 0;
-        this._coffee.ease({opacity: 255, duration: 300,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            onComplete: () => {
-                if (this._coffee)
-                    this._coffee.ease({opacity: 0, duration: 500, delay: 4000,
-                        mode: Clutter.AnimationMode.EASE_IN_QUAD});
-            }});
-    }
-
-    // ---------- Speech bubbles ----------
-
-    _pick(list) {
-        return list[Math.floor(Math.random() * list.length)];
-    }
-
-    _placeBubble() {
-        const b = this._bubble;
-        b.set_position(
-            Math.round(this._pet.x + this._size / 2 - b.width / 2),
-            Math.round(this._pet.y + (this._pet.translation_y || 0) -
-                b.height - this._size * 0.06));
-    }
-
-    _say(text) {
-        if (!this._speechOn || !this._bubble || !this._pet || this._hidden)
-            return;
-        this._bubble.text = text;
-        this._bubble.remove_all_transitions();
-        this._placeBubble();
-        this._bubble.opacity = 0;
-        this._bubble.ease({opacity: 255, duration: 220,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            onComplete: () => {
-                if (this._bubble)
-                    this._bubble.ease({opacity: 0, duration: 350,
-                        delay: BUBBLE_MS,
-                        mode: Clutter.AnimationMode.EASE_IN_QUAD});
-            }});
+        this._coffeeSteam = (this._coffeeSteam ?? 0) + 1;
+        if (this._coffeeSteam % STEAM_EVERY === 0)
+            this._puffSteam(0.26);   // steam rising off the mug
     }
 
     // ---------- Reactions ----------
@@ -1384,7 +1314,6 @@ export default class ClaudePetExtension extends Extension {
         if (this._clicks >= 3) {
             this._clicks = 0;
             this._hearts();
-            this._say(this._pick(LINES.petted));
         }
         if (['react', 'wave', 'dizzy'].includes(this._mode))
             return;
@@ -1642,7 +1571,7 @@ export default class ClaudePetExtension extends Extension {
                 this._pet.set_pivot_point(0.5, 1.0);
             }
             for (const a of [this._zzz, this._moon, this._chef, this._pan,
-                this._hat, this._sweat, this._coffee, this._steam, this._bubble,
+                this._hat, this._sweat, this._coffee, this._steam,
                 ...(this._notes ?? [])]) {
                 if (a) {
                     a.remove_all_transitions();
@@ -1681,6 +1610,10 @@ export default class ClaudePetExtension extends Extension {
             this._stateMonitor = null;
         }
         this._stateFile = null;
+        if (this._powerWatchId) {
+            Gio.DBus.system.signal_unsubscribe(this._powerWatchId);
+            this._powerWatchId = null;
+        }
 
         Main.layoutManager.disconnectObject(this);
         Main.overview.disconnectObject(this);
@@ -1699,7 +1632,7 @@ export default class ClaudePetExtension extends Extension {
         this._particles = null;
         this._notes = null;
         for (const key of ['_zzz', '_moon', '_steam', '_chef', '_pan', '_prop',
-            '_hat', '_sweat', '_coffee', '_bubble', '_shadow', '_pet']) {
+            '_hat', '_sweat', '_coffee', '_shadow', '_pet']) {
             if (this[key]) {
                 this[key].remove_all_transitions();
                 Main.layoutManager.removeChrome(this[key]);

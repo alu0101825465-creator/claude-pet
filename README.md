@@ -31,8 +31,10 @@ around, reacts to what you do, and naps when you leave it alone.
 - **Music notes** 🎶 in rotating colours while any player is actually playing.
 - **System reactions** 🔋: breaks a sweat when the battery is low or the CPU is
   pegged.
-- **Speech bubbles** and a **daily routine**: greetings, a morning coffee, and an
-  optional seasonal hat that changes itself in October and December.
+- **Coffee break** ☕: holds a steaming mug whenever the laptop is in the
+  **performance** power profile — never together with the chef hat.
+- **Daily routine**: sleepier at night, plus an optional seasonal hat that
+  changes itself in October and December.
 - **Light on resources**: the timers slow down while it sleeps and stop entirely
   while it is hidden.
 
@@ -77,7 +79,7 @@ gnome-extensions prefs claude-pet@gumer
 ```
 
 Size, walking speed, hat, and switches for every reaction: apps, click, cursor
-following, sleep, music, system, speech bubbles, daily routine and Claude Code.
+following, sleep, music, system, daily routine and Claude Code.
 
 ## Claude Code integration
 

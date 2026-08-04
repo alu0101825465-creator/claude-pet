@@ -90,7 +90,7 @@ export default class ClaudePetPrefs extends ExtensionPreferences {
 
         const systemRow = new Adw.SwitchRow({
             title: 'System reactions',
-            subtitle: 'Sweat on low battery or heavy CPU load',
+            subtitle: 'Sweat on low battery or CPU load, coffee in performance mode',
         });
         reactions.add(systemRow);
 
@@ -98,15 +98,9 @@ export default class ClaudePetPrefs extends ExtensionPreferences {
         const personality = new Adw.PreferencesGroup({title: 'Personality'});
         page.add(personality);
 
-        const speechRow = new Adw.SwitchRow({
-            title: 'Speech bubbles',
-            subtitle: 'Short messages above the pet',
-        });
-        personality.add(speechRow);
-
         const routineRow = new Adw.SwitchRow({
             title: 'Daily routine',
-            subtitle: 'Morning coffee and greetings, sleepier at night',
+            subtitle: 'Sleepier at night and an automatic seasonal hat',
         });
         personality.add(routineRow);
 
@@ -155,7 +149,7 @@ export default class ClaudePetPrefs extends ExtensionPreferences {
             ['react-apps', appsRow], ['wave-on-click', clickRow],
             ['follow-cursor', followRow], ['sleep', sleepRow],
             ['music', musicRow], ['system-reactions', systemRow],
-            ['speech', speechRow], ['daily-routine', routineRow],
+            ['daily-routine', routineRow],
             ['cooking', cookingRow], ['claude-hooks', hooksRow],
         ]) {
             settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
