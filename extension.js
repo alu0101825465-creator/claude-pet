@@ -62,6 +62,9 @@ const STEAM_EVERY = 8;
 const NOTE_EVERY = 12;
 const NOTE_MS = 1500;
 const BUBBLE_MS = 3600;
+const GREET_DELAY_US = 8000000;      // let the desktop settle before greeting
+const COFFEE_EVERY_US = 720000000;   // a fresh coffee every 12 min in the morning
+const CHATTER_EVERY_US = 360000000;  // the odd idle remark, every ~6 min
 
 // --- Overlay sizes, as a fraction of the pet size ---
 const OVERLAY_RATIO = {
@@ -101,8 +104,13 @@ const HATS = {
     none: null, christmas: 'hat_christmas',
     halloween: 'hat_halloween', birthday: 'hat_birthday',
 };
-// Apps that put the pet in cooking mode.
-const COOKING_APPS = ['claude', 'code'];
+// Apps that put the pet in cooking mode, matched against the desktop id without
+// the .desktop suffix. Exact-ish matching on purpose: a loose "code" substring
+// would catch unrelated apps, and "claude-code-url-handler" is not an editor.
+const COOKING_APP_IDS = [
+    'com.anthropic.claude', 'claude', 'code', 'code-oss',
+    'visual-studio-code', 'com.visualstudio.code', 'codium', 'vscodium',
+];
 // Per-app reactions: a gesture plus a floating prop.
 const APP_REACTIONS = [
     {keys: ['spotify', 'vlc', 'rhythmbox'], prop: 'note'},
@@ -127,6 +135,9 @@ const LINES = {
     busy: ['Busy busy!', 'Cooking something…'],
     done: ['All done!', 'Task complete!', 'Nailed it!'],
     error: ['Uh oh…', 'Something broke!', 'That did not work.'],
+    idle: ['Nice dock you have here.', 'Just stretching my legs.',
+        'What are we building?', 'Beep boop.', 'I like it up here.',
+        'Right-click me to summon Claude!'],
 };
 
 export default class ClaudePetExtension extends Extension {
@@ -159,7 +170,9 @@ export default class ClaudePetExtension extends Extension {
         this._noteIndex = 0;
         this._noteColour = 0;
         this._greetedOn = null;
-        this._coffeeOn = null;
+        this._startedAt = GLib.get_monotonic_time();
+        this._lastCoffee = 0;
+        this._lastChatter = 0;
         this._tickRate = 0;
         this._pollRate = 0;
         this._claudeState = '';
@@ -955,8 +968,13 @@ export default class ClaudePetExtension extends Extension {
     _cookingApp() {
         try {
             for (const app of Shell.AppSystem.get_default().get_running()) {
-                const id = (app.get_id() || '').toLowerCase();
-                if (COOKING_APPS.some(k => id.includes(k)))
+                // An app with no windows left is just lingering in the tray or
+                // in the background, so it does not count as "working".
+                if (app.get_n_windows?.() === 0)
+                    continue;
+                const id = (app.get_id() || '').toLowerCase()
+                    .replace(/\.desktop$/, '');
+                if (COOKING_APP_IDS.includes(id))
                     return true;
             }
         } catch (_e) {}
@@ -1159,22 +1177,42 @@ export default class ClaudePetExtension extends Extension {
         return h >= 23 || h < 6;
     }
 
+    _timeLines(h) {
+        return h < 12 ? LINES.morning : h < 21 ? LINES.evening : LINES.night;
+    }
+
     _checkRoutine() {
         if (!this._routineOn || this._hidden)
             return;
-        const now = new Date();
-        const today = now.toDateString();
-        const h = now.getHours();
+        const now = GLib.get_monotonic_time();
+        // Do not greet in the first seconds after login: the desktop is still
+        // settling and nobody would see it.
+        if (now - this._startedAt < GREET_DELAY_US)
+            return;
+
+        const date = new Date();
+        const today = date.toDateString();
+        const h = date.getHours();
 
         if (this._greetedOn !== today && h >= 6) {
             this._greetedOn = today;
-            this._say(this._pick(
-                h < 12 ? LINES.morning : h < 21 ? LINES.evening : LINES.night));
+            this._say(this._pick(this._timeLines(h)));
+            this._lastChatter = now;
+            // Stagger the first coffee so it does not land on top of the hello.
+            this._lastCoffee = now - COFFEE_EVERY_US + 20000000;
+            return;
         }
-        // A morning coffee, once a day.
-        if (this._coffeeOn !== today && h >= 7 && h < 12) {
-            this._coffeeOn = today;
+        // A fresh coffee every so often through the morning, not once a day:
+        // a single 4-second prop is far too easy to miss.
+        if (h >= 7 && h < 12 && now - (this._lastCoffee ?? 0) > COFFEE_EVERY_US) {
+            this._lastCoffee = now;
             this._showCoffee();
+            return;
+        }
+        if (now - (this._lastChatter ?? 0) > CHATTER_EVERY_US &&
+            ['walk', 'idle'].includes(this._mode)) {
+            this._lastChatter = now;
+            this._say(this._pick(LINES.idle));
         }
     }
 
