@@ -38,6 +38,13 @@ around, reacts to what you do, and naps when you leave it alone.
 - **Light on resources**: the timers slow down while it sleeps and stop entirely
   while it is hidden.
 
+## Not on GNOME?
+
+There is a cross-platform port in [`desktop/`](desktop/) — a Qt app that runs on
+**Windows, macOS and Linux**, sharing this repository's artwork and behaviour.
+Use it if you are on Windows or a desktop other than GNOME; on GNOME the
+extension below is the better fit.
+
 ## Requirements
 
 - **GNOME Shell 45–50** (ESM format). It will not run on < 45; on 51+ add `"51"`

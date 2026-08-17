@@ -1,0 +1,7 @@
+# Core
+PySide6>=6.5
+psutil>=5.9
+
+# Optional, Windows only: lets the pet notice that music is playing through the
+# system "now playing" session. Everything else works without it.
+winsdk>=1.0 ; sys_platform == "win32"
