@@ -7,16 +7,41 @@ instead of a shell actor.
 > On GNOME, prefer the extension in the repository root: it can sit on the dock
 > properly and float above windows without competing for stacking order.
 
-## Install
+## Install on Windows
+
+You need [Python 3](https://www.python.org/downloads/) — during setup tick
+**"Add python.exe to PATH"**.
+
+1. Download the whole repository (green **Code** button → **Download ZIP**) and
+   unzip it, or `git clone https://github.com/alu0101825465-creator/claude-pet.git`.
+   Keep the folder intact: the app reads the sprites from `..\assets`.
+2. Open the `desktop` folder and **double-click `run_windows.bat`**.
+
+That is it. The script builds a private environment, installs everything and
+starts the pet. It only does the setup once; later runs start immediately.
+
+To start it automatically at login, press **Win+R**, type `shell:startup`, and
+put a shortcut to `run_windows.bat` in the folder that opens.
+
+### Manual install, if you prefer
+
+```bat
+cd desktop
+py -3 -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\pythonw claude_pet.py
+```
+
+`pythonw` starts it without a console window. Optionally add
+`pip install winsdk` for music detection.
+
+## Install on Linux or macOS
 
 ```bash
+cd desktop
 pip install -r requirements.txt
 python3 claude_pet.py
 ```
-
-On Windows, `pythonw.exe claude_pet.py` starts it without a console window. To
-launch it at login, drop a shortcut to that command into
-`shell:startup` (Win+R → `shell:startup`).
 
 ## What it does
 

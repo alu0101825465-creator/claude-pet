@@ -1,7 +1,9 @@
-# Core
+# Everything the pet needs.
 PySide6>=6.5
 psutil>=5.9
 
-# Optional, Windows only: lets the pet notice that music is playing through the
-# system "now playing" session. Everything else works without it.
-winsdk>=1.0 ; sys_platform == "win32"
+# OPTIONAL, Windows only: lets the pet notice that music is playing through the
+# system "now playing" session. It is deliberately NOT listed above, because it
+# does not ship wheels for every Python version and a failure there would block
+# the whole install. Add music detection with:
+#     pip install winsdk

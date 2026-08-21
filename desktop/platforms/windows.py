@@ -67,6 +67,41 @@ class WindowsPlatform(Platform):
         except OSError:
             self._powrprof = None
         self._media = _MediaWatcher()
+        self._declare_types()
+
+    def _declare_types(self):
+        """Spell out every signature we use.
+
+        ctypes defaults integer arguments to C int, which silently truncates a
+        64-bit HWND on 64-bit Windows and makes the call fail in confusing ways.
+        """
+        u = self._user32
+        u.IsWindowVisible.argtypes = [wt.HWND]
+        u.IsWindowVisible.restype = wt.BOOL
+        u.GetWindowTextLengthW.argtypes = [wt.HWND]
+        u.GetWindowTextLengthW.restype = ctypes.c_int
+        u.GetWindowTextW.argtypes = [wt.HWND, wt.LPWSTR, ctypes.c_int]
+        u.GetWindowTextW.restype = ctypes.c_int
+        u.GetWindowThreadProcessId.argtypes = [wt.HWND,
+                                               ctypes.POINTER(wt.DWORD)]
+        u.GetWindowThreadProcessId.restype = wt.DWORD
+        u.SetForegroundWindow.argtypes = [wt.HWND]
+        u.SetForegroundWindow.restype = wt.BOOL
+        u.ShowWindow.argtypes = [wt.HWND, ctypes.c_int]
+        u.ShowWindow.restype = wt.BOOL
+        u.GetCursorPos.argtypes = [ctypes.POINTER(wt.POINT)]
+        u.GetCursorPos.restype = wt.BOOL
+        u.EnumWindows.argtypes = [ctypes.WINFUNCTYPE(wt.BOOL, wt.HWND,
+                                                     wt.LPARAM), wt.LPARAM]
+        u.EnumWindows.restype = wt.BOOL
+        self._shell32.SHAppBarMessage.argtypes = [wt.DWORD,
+                                                  ctypes.POINTER(APPBARDATA)]
+        self._shell32.SHAppBarMessage.restype = ctypes.c_size_t
+        if self._powrprof and hasattr(self._powrprof,
+                                      'PowerGetActualOverlayScheme'):
+            self._powrprof.PowerGetActualOverlayScheme.argtypes = [
+                ctypes.POINTER(GUID)]
+            self._powrprof.PowerGetActualOverlayScheme.restype = wt.DWORD
 
     # --- Taskbar --------------------------------------------------------
 
