@@ -62,7 +62,7 @@ python3 claude_pet.py
 - **Interactive**: left-click to wave, click a few times for hearts, right-click
   to summon Claude, drag it around and it bounces back (and gets dizzy if you
   shake it).
-- Everything is toggled from the **tray icon**, including the seasonal hat.
+- Everything is toggled from the **tray icon**, including size (48px - 160px) and the seasonal hat.
 
 Settings live in `settings.json` next to the state file:
 
@@ -81,11 +81,11 @@ and wire it into `~/.claude/settings.json`:
   "hooks": {
     "UserPromptSubmit": [
       { "hooks": [ { "type": "command",
-                     "command": "powershell -NoProfile -File C:\\tools\\claude-pet-state.ps1 working" } ] }
+                     "command": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& 'C:\\tools\\claude-pet-state.ps1' working\"" } ] }
     ],
     "Stop": [
       { "hooks": [ { "type": "command",
-                     "command": "powershell -NoProfile -File C:\\tools\\claude-pet-state.ps1 done" } ] }
+                     "command": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& 'C:\\tools\\claude-pet-state.ps1' done\"" } ] }
     ]
   }
 }
@@ -126,5 +126,5 @@ python3 ../import_art.py my_hat.png christmas
 Anything a platform cannot answer is simply skipped — the pet never breaks
 because a backend returned nothing.
 
-> **Tested on Linux only.** The Windows backend is written against the Win32 API
-> but has not been run on a Windows machine yet; please report anything odd.
+> **Tested on Linux and Windows.** On Windows, supports DPI scaling,
+> taskbar placement/auto-hide, and in-memory power profile detection.

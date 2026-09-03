@@ -20,12 +20,3 @@ switch ($State) {
     }
 }
 
-# "done" and "error" are momentary: clear them after a few seconds so the pet
-# goes back to its normal routine.
-if ($State -in 'done', 'error') {
-    Start-Job -ScriptBlock {
-        param($f)
-        Start-Sleep -Seconds 6
-        Remove-Item -Path $f -ErrorAction SilentlyContinue
-    } -ArgumentList $file | Out-Null
-}

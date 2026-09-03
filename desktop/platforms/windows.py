@@ -23,6 +23,7 @@ ABS_AUTOHIDE = 0x0000001
 # Windows 11 "power mode" overlay GUIDs, and the classic power plans.
 OVERLAY_PROFILES = {
     'ded574b5-45a0-4f42-8737-46345c09c238': 'performance',   # best performance
+    '961cc777-2547-4f9d-8174-7d86181b8a7a': 'power-saver',   # better battery
     '3af9b8d9-7c97-431d-ad78-34a8bfea439f': 'power-saver',   # best efficiency
     '00000000-0000-0000-0000-000000000000': 'balanced',      # recommended
 }
@@ -102,6 +103,10 @@ class WindowsPlatform(Platform):
             self._powrprof.PowerGetActualOverlayScheme.argtypes = [
                 ctypes.POINTER(GUID)]
             self._powrprof.PowerGetActualOverlayScheme.restype = wt.DWORD
+        if self._powrprof and hasattr(self._powrprof, 'PowerGetActiveScheme'):
+            self._powrprof.PowerGetActiveScheme.argtypes = [
+                ctypes.c_void_p, ctypes.POINTER(ctypes.POINTER(GUID))]
+            self._powrprof.PowerGetActiveScheme.restype = wt.DWORD
 
     # --- Taskbar --------------------------------------------------------
 
@@ -173,15 +178,17 @@ class WindowsPlatform(Platform):
                 profile = OVERLAY_PROFILES.get(str(guid).lower())
                 if profile:
                     return profile
-        try:
-            out = subprocess.run(['powercfg', '/getactivescheme'],
-                                 capture_output=True, text=True, timeout=3).stdout
-            for guid, profile in PLAN_PROFILES.items():
-                if guid in out.lower():
-                    return profile
-        except Exception:
-            pass
-        return None
+        # Classic power plan in memory (no processes spawned)
+        if self._powrprof and hasattr(self._powrprof, 'PowerGetActiveScheme'):
+            p_guid = ctypes.POINTER(GUID)()
+            if self._powrprof.PowerGetActiveScheme(None, ctypes.byref(p_guid)) == 0 and p_guid:
+                try:
+                    profile = PLAN_PROFILES.get(str(p_guid.contents).lower())
+                    if profile:
+                        return profile
+                finally:
+                    ctypes.windll.kernel32.LocalFree(p_guid)
+        return 'balanced'
 
     def battery(self):
         if not psutil:
@@ -228,7 +235,7 @@ class WindowsPlatform(Platform):
         for command in (['cmd', '/c', 'start', '', 'claude:'],
                         ['cmd', '/c', 'start', '', 'Claude']):
             try:
-                subprocess.Popen(command, shell=False)
+                subprocess.Popen(command, shell=False, creationflags=subprocess.CREATE_NO_WINDOW)
                 return True
             except Exception:
                 continue

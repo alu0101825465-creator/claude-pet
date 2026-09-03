@@ -21,7 +21,8 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QTimer, QRect, QPoint
 from PySide6.QtGui import (QPixmap, QPainter, QIcon, QAction, QActionGroup,
                            QCursor, QRegion)
-from PySide6.QtWidgets import (QApplication, QWidget, QMenu, QSystemTrayIcon)
+from PySide6.QtWidgets import (QApplication, QWidget, QMenu, QSystemTrayIcon,
+                               QInputDialog)
 
 import platforms
 
@@ -29,7 +30,7 @@ import platforms
 FOOT_PAD_RATIO = 19 / 96      # transparent padding below the feet in the PNG
 HEAD_TOP_RATIO = 21 / 96      # where the head starts in the sprite
 HAT_OVERLAP = 0.05
-BAR_OVERLAP = 14              # how far the feet stand on the taskbar edge
+BAR_OVERLAP = 2               # how far the feet stand on the taskbar edge (2px resting on top)
 FLOOR_MARGIN = 8              # gap from the screen edge when there is no bar
 EDGE_INSET = 16
 
@@ -267,6 +268,30 @@ class Pet(QWidget):
                 lambda checked, k=key: self._set_setting(k, checked))
             menu.addAction(action)
 
+        size_menu = menu.addMenu('Size')
+        size_group = QActionGroup(size_menu)
+        self._size_actions = {}
+        for s, label in [
+            (48, '48 px (Tiny)'),
+            (64, '64 px (Small)'),
+            (80, '80 px (Medium)'),
+            (96, '96 px (Default)'),
+            (112, '112 px (Large)'),
+            (128, '128 px (Extra large)'),
+            (160, '160 px (Huge)'),
+        ]:
+            action = QAction(label, size_menu, checkable=True)
+            action.setChecked(self.size_px == s)
+            action.triggered.connect(lambda _c, val=s: self._set_size(val))
+            size_group.addAction(action)
+            size_menu.addAction(action)
+            self._size_actions[s] = action
+
+        size_menu.addSeparator()
+        custom_size_action = QAction('Custom...', size_menu)
+        custom_size_action.triggered.connect(self._prompt_custom_size)
+        size_menu.addAction(custom_size_action)
+
         hat_menu = menu.addMenu('Hat')
         group = QActionGroup(hat_menu)
         for key, text in [('none', 'None'), ('christmas', 'Christmas'),
@@ -291,6 +316,34 @@ class Pet(QWidget):
         self.settings[key] = value
         self._save_settings()
 
+    def _set_size(self, size):
+        size = max(48, min(160, int(size)))
+        if size == self.size_px:
+            return
+        self.size_px = size
+        self._set_setting('size', size)
+        self._load_sprites()
+        w = self.size_px * 3
+        h = int(self.size_px * 2.4)
+        self.resize(w, h)
+        self.pet_local = QPoint((w - self.size_px) // 2,
+                                h - self.size_px - int(self.size_px * 0.25))
+        self._reposition()
+        self._update_mask()
+        self.update()
+        if hasattr(self, '_size_actions'):
+            for s, action in self._size_actions.items():
+                action.setChecked(self.size_px == s)
+
+    def _prompt_custom_size(self):
+        val, ok = QInputDialog.getInt(
+            self, 'Claude Pet Size',
+            'Sprite size in pixels (48 - 160):',
+            self.size_px, 48, 160, 4
+        )
+        if ok:
+            self._set_size(val)
+
     # ---------- Placement ----------
 
     def _screen_geometry(self):
@@ -300,8 +353,15 @@ class Pet(QWidget):
 
     def _reposition(self):
         geo = self._screen_geometry()
+        screen = QApplication.screenAt(self.frameGeometry().center()) \
+            or QApplication.primaryScreen()
+        dpr = screen.devicePixelRatio() if screen else 1.0
         foot_pad = int(self.size_px * FOOT_PAD_RATIO)
-        bar = self.platform.taskbar_rect()
+        hidden = self.platform.taskbar_hidden()
+        bar = self.platform.taskbar_rect() if not hidden else None
+        if bar and dpr and dpr != 1.0:
+            bar = (bar[0] / dpr, bar[1] / dpr, bar[2] / dpr, bar[3] / dpr)
+
         if bar and bar[3] > 0 and bar[2] >= bar[3]:      # a horizontal bar
             x, y, w, h = bar
             top = y if y > geo.y() + geo.height() / 2 else y + h
@@ -359,9 +419,19 @@ class Pet(QWidget):
             return
         if value == 'done':
             self._celebrate()
+            QTimer.singleShot(6000, self._clear_momentary_state)
         elif value == 'error':
             self._sweat()
             self._start_dizzy()
+            QTimer.singleShot(6000, self._clear_momentary_state)
+
+    def _clear_momentary_state(self):
+        try:
+            if self.state_path.exists() and self.state_path.read_text().strip().lower() in ('done', 'error'):
+                self.state_path.unlink()
+        except OSError:
+            pass
+        self.claude_state = ''
 
     def _check_cooking(self):
         forced = time.monotonic() < self.cook_until
@@ -712,8 +782,16 @@ class Pet(QWidget):
 
     def _update_mask(self):
         """Only the pet and its props catch the mouse; the rest clicks through."""
-        region = QRegion(QRect(self.pet_local.x(), self.pet_local.y(),
-                               self.size_px, self.size_px))
+        px = self.pet_local.x()
+        py = self.pet_local.y()
+        off_y = int(self.off_y)
+
+        top = max(0, py + off_y - int(self.size_px * 0.75))
+        bottom = min(self.height(), py + max(0, off_y) + self.size_px + int(self.size_px * 0.2))
+        left = max(0, px - int(self.size_px * 0.4))
+        right = min(self.width(), px + self.size_px + int(self.size_px * 0.5))
+
+        region = QRegion(QRect(left, top, right - left, bottom - top))
         for effect in self.effects:
             region = region.united(QRegion(effect.rect()))
         self.setMask(region)
