@@ -6,7 +6,7 @@ around, reacts to what you do, and naps when you leave it alone.
 **Fully local — no network access whatsoever.**
 
 - **UUID:** `claude-pet@gumer`
-- **Tested on:** GNOME Shell 50 (Fedora 44), Wayland.
+- **Tested on:** GNOME Shell 51 (Fedora 45), Wayland.
 
 ## What it does
 
@@ -47,8 +47,8 @@ extension below is the better fit.
 
 ## Requirements
 
-- **GNOME Shell 45–50** (ESM format). It will not run on < 45; on 51+ add `"51"`
-  to `shell-version` in `metadata.json`.
+- **GNOME Shell 45–51** (ESM format). It will not run on < 45; on newer releases
+  add the version to `shell-version` in `metadata.json`.
 - **Optional:** a bottom dock. It is tuned for
   [Dash2Dock Animated](https://extensions.gnome.org/extension/4994/dash2dock-lite/),
   detects Dash to Dock and the Ubuntu dock, and otherwise falls back to sitting
